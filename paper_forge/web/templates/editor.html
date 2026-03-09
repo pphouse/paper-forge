@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project_name }} - PaperForge{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}">
+{% endblock %}
+
+{% block nav_extra %}
+<span class="navbar-project">/ <span>{{ project_name }}</span></span>
+{% endblock %}
+
+{% block content %}
+<div class="editor-layout" id="editor-layout">
+  <!-- ── Left pane: Editor ─────────────────────────────── -->
+  <div class="editor-pane" id="editor-pane">
+    <!-- Toolbar -->
+    <div class="editor-toolbar">
+      <div class="toolbar-left">
+        <div class="lang-toggle">
+          <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+          <button class="lang-btn" data-lang="ja" onclick="setLang('ja')">JA</button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-sm" onclick="saveSpec()" title="Save (Ctrl+S)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Save
+        </button>
+        <button class="btn btn-sm btn-primary" onclick="buildPdf()" title="Build PDF (Ctrl+B)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          Build PDF
+        </button>
+        <button class="btn btn-sm btn-success" onclick="downloadPdf()" title="Download PDF">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="editor-tabs" id="editor-tabs">
+      <button class="tab active" data-tab="metadata" onclick="switchTab('metadata')">Metadata</button>
+      <!-- Section tabs are generated dynamically -->
+      <button class="tab" data-tab="references" onclick="switchTab('references')">References</button>
+      <button class="tab" data-tab="figures" onclick="switchTab('figures')">Figures</button>
+    </div>
+
+    <!-- Tab panels -->
+    <div class="editor-panels" id="editor-panels">
+      <!-- Metadata panel -->
+      <div class="panel active" id="panel-metadata">
+        <div class="field-group">
+          <label>Title</label>
+          <input type="text" id="field-title" class="full-width"
+                 placeholder="Paper title..."
+                 onblur="onFieldBlur()">
+        </div>
+        <div class="field-group">
+          <label>Authors (comma-separated)</label>
+          <input type="text" id="field-authors" class="full-width"
+                 placeholder="Author One, Author Two"
+                 onblur="onFieldBlur()">
+        </div>
+        <div class="field-group">
+          <label>Abstract</label>
+          <textarea id="field-abstract" rows="10"
+                    placeholder="Write your abstract here (Markdown supported)..."
+                    onblur="onFieldBlur()"></textarea>
+        </div>
+      </div>
+
+      <!-- Section panels are generated dynamically -->
+
+      <!-- References panel -->
+      <div class="panel" id="panel-references">
+        <div class="field-group">
+          <label>References (one per line)</label>
+          <textarea id="field-references" rows="20"
+                    placeholder="[1] Author et al. Title. Journal, 2024.&#10;[2] ..."
+                    onblur="onFieldBlur()"></textarea>
+        </div>
+      </div>
+
+      <!-- Figures panel -->
+      <div class="panel" id="panel-figures">
+        <div class="field-group">
+          <label>Upload Figures</label>
+          <input type="file" id="figure-upload" multiple accept="image/*,.pdf,.svg"
+                 onchange="uploadFigures()">
+          <div id="figure-list" class="figure-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Resize handle ─────────────────────────────────── -->
+  <div class="resize-handle" id="resize-handle"></div>
+
+  <!-- ── Right pane: Preview ───────────────────────────── -->
+  <div class="preview-pane" id="preview-pane">
+    <div class="preview-toolbar">
+      <span class="preview-title">Preview</span>
+      <div class="lang-toggle">
+        <button class="lang-btn active" data-lang="en" onclick="setPreviewLang('en')">EN</button>
+        <button class="lang-btn" data-lang="ja" onclick="setPreviewLang('ja')">JA</button>
+      </div>
+      <button class="btn btn-sm" onclick="refreshPreview()">Refresh</button>
+    </div>
+    <div class="preview-content" id="preview-content">
+      <p class="preview-placeholder">Preview will appear here after saving.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Status bar ────────────────────────────────────────── -->
+<div class="status-bar" id="status-bar">
+  <span id="status-text">Ready</span>
+  <span class="status-spacer"></span>
+  <span id="status-lang">EN</span>
+  <span class="status-sep">|</span>
+  <span id="status-shortcut">Ctrl+S save &middot; Ctrl+B build</span>
+</div>
+
+<!-- Pass server data to JS -->
+<script>
+  window.PAPERFORGE = {
+    projectName: {{ project_name | tojson }},
+    spec: {{ spec | tojson }},
+  };
+</script>
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+{% endblock %}

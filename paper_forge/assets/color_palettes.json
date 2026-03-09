@@ -1,0 +1,27 @@
+{
+  "default": {
+    "primary": "#2166AC",
+    "secondary": "#B2182B",
+    "accent1": "#4DAF4A",
+    "accent2": "#FF7F00",
+    "accent3": "#984EA3",
+    "light_blue": "#92C5DE",
+    "light_red": "#F4A582",
+    "gray": "#969696"
+  },
+  "colorblind_safe": {
+    "blue": "#0072B2",
+    "orange": "#E69F00",
+    "green": "#009E73",
+    "yellow": "#F0E442",
+    "sky_blue": "#56B4E9",
+    "vermillion": "#D55E00",
+    "purple": "#CC79A7"
+  },
+  "grayscale": {
+    "dark": "#333333",
+    "medium": "#777777",
+    "light": "#BBBBBB",
+    "very_light": "#E5E5E5"
+  }
+}

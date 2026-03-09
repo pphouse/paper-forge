@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "paper-forge"
+version = "0.1.0"
+description = "Research data to academic paper PDF generator with interactive editing"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "flask>=3.0",
+    "jinja2>=3.1",
+    "markdown>=3.5",
+    "pymdown-extensions>=10.0",
+    "weasyprint>=60.0",
+    "matplotlib>=3.7",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+    "seaborn>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov"]
+
+[project.scripts]
+paper-forge = "paper_forge.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["paper_forge*"]
+
+[tool.setuptools.package-data]
+paper_forge = ["templates/*", "assets/*", "web/templates/*", "web/static/**/*"]

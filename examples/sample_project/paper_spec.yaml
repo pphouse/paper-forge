@@ -1,0 +1,185 @@
+meta:
+  title:
+    en: "High-precision Prediction of Cardiac Transcription Factor TBX5 Binding Sites Using Genomic Foundation Model Evo2"
+    ja: "ゲノム基盤モデルEvo2を用いた心臓転写因子TBX5結合部位の高精度予測"
+  template: twocol
+  date: "2026-03-01"
+
+authors:
+  - name: "Pipeline Evo2 Team"
+    affiliation: "Computational Biology Laboratory"
+    email: ""
+
+keywords:
+  en: "TBX5, Evo2, Deep Learning, Focal Loss, Transcription Factor, Cardiac Development"
+  ja: "TBX5, Evo2, 深層学習, Focal Loss, 転写因子, 心臓発生"
+
+abstract:
+  en: |
+    TBX5 is a transcription factor that plays a central role in cardiac development,
+    and identifying its binding sites is essential for understanding the molecular
+    mechanisms of congenital heart disease. In this study, we extracted base-level
+    embedding representations from 1,000 cardiac-related gene sequences using the
+    7B-parameter genomic foundation model Evo2. To address extreme class imbalance
+    (TBX5 positive rate of 3.4%), we developed a deep learning approach combining
+    strategic data augmentation and Focal Loss. The proposed method achieved an AUC
+    of 0.954 on the test set, significantly outperforming Sparse Autoencoder alone
+    (AUC 0.524) and conventional machine learning methods (XGBoost: AUC 0.613).
+  ja: |
+    TBX5は心臓発生において中心的な役割を果たす転写因子であり、その結合部位の同定は
+    先天性心疾患の分子メカニズムの理解に不可欠である。本研究では、70億パラメータの
+    ゲノム基盤モデルEvo2を用いて、1,000の心臓関連遺伝子配列から塩基レベルの埋め込み
+    表現を抽出した。極端なクラス不均衡（TBX5陽性率3.4%）に対処するため、戦略的データ
+    拡張とFocal Lossを組み合わせた深層学習アプローチを開発した。提案手法はテストセット
+    でAUC 0.954を達成し、Sparse Autoencoder単体（AUC 0.524）や従来の機械学習手法
+    （XGBoost: AUC 0.613）を大幅に上回った。
+
+sections:
+  - heading:
+      en: "Introduction"
+      ja: "はじめに"
+    content:
+      en: |
+        Cardiac development is controlled by a complex transcription factor network,
+        in which T-box transcription factor TBX5 plays a particularly important role.
+        TBX5 haploinsufficiency causes Holt-Oram syndrome, leading to congenital
+        heart diseases such as atrial septal defects and ventricular septal defects.
+
+        Recent advances in genomic foundation models have opened new possibilities
+        for transcription factor binding prediction. The Evo2 model, with 7 billion
+        parameters pre-trained on 300 billion base pairs of DNA sequences, can
+        capture complex sequence patterns and long-range interactions.
+      ja: |
+        心臓発生は複雑な転写因子ネットワークによって制御されており、その中でT-box
+        転写因子TBX5は特に重要な役割を果たしている。TBX5のハプロ不全はHolt-Oram
+        症候群を引き起こし、心房中隔欠損症や心室中隔欠損症などの先天性心疾患の
+        原因となる。
+
+        近年のゲノム基盤モデルの進歩は、転写因子結合予測に新たな可能性を開いた。
+        Evo2モデルは70億パラメータを持ち、3000億塩基対のDNA配列で事前学習されて
+        おり、複雑な配列パターンと長距離相互作用を捉えることができる。
+
+  - heading:
+      en: "Methods"
+      ja: "手法"
+    content:
+      en: ""
+      ja: ""
+    subsections:
+      - heading:
+          en: "Dataset"
+          ja: "データセット"
+        content:
+          en: |
+            We obtained 6,614 cardiac-related gene sequences from the human genome
+            (GRCh38/hg38). The first batch of 1,000 sequences contained 34 TBX5-positive
+            (3.4%) and 966 TBX5-negative (96.6%) sequences.
+          ja: |
+            ヒトゲノム（GRCh38/hg38）から6,614の心臓関連遺伝子配列を取得した。
+            最初のバッチの1,000配列には、TBX5陽性34配列（3.4%）とTBX5陰性966配列
+            （96.6%）が含まれていた。
+      - heading:
+          en: "Feature Extraction with Evo2"
+          ja: "Evo2による特徴抽出"
+        content:
+          en: |
+            We employed the Evo2 genomic foundation model to extract sequence
+            representations. For each 16,384bp sequence, we obtained Layer 26
+            activations, generating embedding matrices of 16,384 x 4,096 dimensions.
+          ja: |
+            Evo2ゲノム基盤モデルを用いて配列表現を抽出した。各16,384bp配列について
+            Layer 26の活性化を取得し、16,384 x 4,096次元の埋め込み行列を生成した。
+      - heading:
+          en: "Deep Learning with Class Imbalance Handling"
+          ja: "クラス不均衡対応深層学習"
+        content:
+          en: |
+            To address the extreme class imbalance (1:28 ratio), we implemented
+            strategic data augmentation. We employed Focal Loss with alpha=0.25
+            and gamma=2.0 to focus learning on hard-to-classify samples.
+          ja: |
+            極端なクラス不均衡（1:28の比率）に対処するため、戦略的データ拡張を
+            実装した。Focal Loss（α=0.25、γ=2.0）を使用して、分類困難なサンプル
+            への学習を重点化した。
+
+  - heading:
+      en: "Results"
+      ja: "結果"
+    content:
+      en: |
+        The proposed method achieved exceptional performance. The test set AUC
+        of 0.954 represents a substantial improvement over baseline methods.
+
+        | Method | AUC | Precision | Recall | F1 |
+        |--------|-----|-----------|--------|-----|
+        | SAE only | 0.524 | 0.52 | 0.48 | 0.50 |
+        | XGBoost | 0.613 | 0.61 | 0.55 | 0.58 |
+        | DL (no aug.) | 0.721 | 0.70 | 0.62 | 0.66 |
+        | **Proposed** | **0.954** | **0.91** | **0.88** | **0.89** |
+      ja: |
+        提案手法は優れた性能を達成した。テストセットのAUC 0.954は、ベースライン
+        手法に対する大幅な改善を示している。
+
+        | 手法 | AUC | 適合率 | 再現率 | F1 |
+        |------|-----|--------|--------|-----|
+        | SAE単体 | 0.524 | 0.52 | 0.48 | 0.50 |
+        | XGBoost | 0.613 | 0.61 | 0.55 | 0.58 |
+        | DL（拡張なし） | 0.721 | 0.70 | 0.62 | 0.66 |
+        | **提案手法** | **0.954** | **0.91** | **0.88** | **0.89** |
+
+  - heading:
+      en: "Discussion"
+      ja: "考察"
+    content:
+      en: |
+        This study demonstrates that large-scale genomic foundation models,
+        when combined with appropriate handling of class imbalance, can achieve
+        highly accurate transcription factor binding prediction. The success
+        of our approach can be attributed to three key factors: Evo2's deep
+        sequence understanding, strategic data augmentation, and Focal Loss.
+      ja: |
+        本研究は、大規模ゲノム基盤モデルをクラス不均衡の適切な処理と組み合わせる
+        ことで、高精度の転写因子結合予測が可能であることを実証した。本アプローチの
+        成功は、Evo2の深い配列理解、戦略的データ拡張、Focal Lossの3つの要因に
+        起因する。
+
+  - heading:
+      en: "Conclusion"
+      ja: "結論"
+    content:
+      en: |
+        We have developed a highly accurate method for predicting TBX5 binding
+        sites by combining the Evo2 genomic foundation model with strategic
+        data augmentation and Focal Loss. Despite extreme class imbalance
+        (3.4% positive rate), our approach achieved AUC 0.954.
+      ja: |
+        Evo2ゲノム基盤モデルと戦略的データ拡張およびFocal Lossを組み合わせること
+        で、TBX5結合部位の高精度予測手法を開発した。極端なクラス不均衡（陽性率
+        3.4%）にもかかわらず、AUC 0.954を達成した。
+
+figures: {}
+tables: {}
+
+references:
+  - key: bruneau2008
+    authors: "B.G. Bruneau"
+    title: "The developmental genetics of congenital heart disease"
+    journal: "Nature, 451(7181), 943-948"
+    year: 2008
+    doi: ""
+  - key: nguyen2024
+    authors: "E. Nguyen et al."
+    title: "Sequence modeling and design from molecular to genome scale with Evo"
+    journal: "Science, 386(6723), 1234-1245"
+    year: 2024
+    doi: ""
+  - key: lin2017
+    authors: "T.Y. Lin et al."
+    title: "Focal loss for dense object detection"
+    journal: "Proceedings of IEEE ICCV, 2980-2988"
+    year: 2017
+    doi: ""
+
+acknowledgments:
+  en: "We thank the Computational Biology Laboratory for computational resources."
+  ja: "計算生物学研究室の計算資源の提供に感謝する。"

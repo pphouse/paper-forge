@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}PaperForge - Projects{% endblock %}
+
+{% block head %}
+<style>
+  .index-container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .index-header {
+    margin-bottom: 2rem;
+  }
+
+  .index-header h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .index-header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  /* ── Error banner ─────────────────────────────────────── */
+  .error-banner {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: var(--radius);
+    color: #991b1b;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  [data-theme="dark"] .error-banner {
+    background: #3b1111;
+    border-color: #7f1d1d;
+    color: #fca5a5;
+  }
+
+  /* ── Project list ─────────────────────────────────────── */
+  .project-list {
+    list-style: none;
+    margin-bottom: 2.5rem;
+  }
+
+  .project-list li {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+    transition: box-shadow 0.15s;
+  }
+
+  .project-list li:hover {
+    box-shadow: var(--shadow);
+  }
+
+  .project-list a {
+    display: flex;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    text-decoration: none;
+    color: var(--text);
+    gap: 0.6rem;
+  }
+
+  .project-list a .icon {
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+
+  .project-list a .name {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .project-list a .arrow {
+    margin-left: auto;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+  }
+
+  .no-projects {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 1rem;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 2.5rem;
+  }
+
+  /* ── New project form ─────────────────────────────────── */
+  .new-project-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+
+  .new-project-card h2 {
+    font-size: 1.1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group input[type="text"],
+  .form-group select {
+    width: 100%;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .form-row .form-group {
+    flex: 1;
+  }
+
+  .form-actions {
+    margin-top: 1.25rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="index-container">
+  <div class="index-header">
+    <h1>Your Projects</h1>
+    <p>Create and edit research papers with PaperForge.</p>
+  </div>
+
+  {% if error %}
+  <div class="error-banner">{{ error }}</div>
+  {% endif %}
+
+  {% if projects %}
+  <ul class="project-list">
+    {% for p in projects %}
+    <li>
+      <a href="/project/{{ p }}">
+        <span class="icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </span>
+        <span class="name">{{ p }}</span>
+        <span class="arrow">&rsaquo;</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="no-projects">No projects yet. Create one below.</div>
+  {% endif %}
+
+  <div class="new-project-card">
+    <h2>New Project</h2>
+    <form id="new-project-form" onsubmit="return createProject(event)">
+      <div class="form-group">
+        <label for="proj-name">Project Name</label>
+        <input type="text" id="proj-name" placeholder="e.g. my-research-paper" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="proj-template">Template</label>
+          <select id="proj-template">
+            {% for t in templates %}
+            <option value="{{ t }}">{{ t | capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="proj-language">Primary Language</label>
+          <select id="proj-language">
+            <option value="en">English</option>
+            <option value="ja">Japanese</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create Project</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function createProject(e) {
+    e.preventDefault();
+    const name = document.getElementById('proj-name').value.trim();
+    const template = document.getElementById('proj-template').value;
+    const language = document.getElementById('proj-language').value;
+
+    if (!name) return;
+
+    try {
+      const resp = await fetch('/api/project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, template, language }),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Failed to create project.');
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    }
+  }
+</script>
+{% endblock %}
