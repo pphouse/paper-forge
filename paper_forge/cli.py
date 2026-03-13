@@ -142,6 +142,185 @@ def figures(project_dir, spec):
 
 
 @cli.command()
+@click.argument("experiment_dir")
+@click.option("--project-dir", "-o", default=None,
+              help="Output project directory (default: experiment_dir + '_paper')")
+@click.option("--doc", "extra_docs", multiple=True,
+              help="Extra document (Word/PDF/MD) to include as context. Can repeat.")
+@click.option("--overview", default="",
+              help="Research overview text or path to .txt file (auto-derived if omitted)")
+@click.option("--api-key", default=None, envvar="AZURE_OPENAI_API_KEY",
+              help="Azure OpenAI API key")
+@click.option("--endpoint", default=None, envvar="AZURE_OPENAI_ENDPOINT",
+              help="Azure OpenAI endpoint URL")
+@click.option("--deployment", default=None, envvar="AZURE_OPENAI_DEPLOYMENT",
+              help="Azure OpenAI deployment name")
+@click.option("--lang", default="both",
+              type=click.Choice(["en", "ja", "both"]),
+              help="Language for generation")
+@click.option("--title-en", default="", help="Paper title (EN). Auto-derived if empty.")
+@click.option("--title-ja", default="", help="Paper title (JA). Auto-derived if empty.")
+@click.option("--template", default="twocol",
+              type=click.Choice(["twocol", "onecol", "nature", "ieee"]),
+              help="Paper template")
+@click.option("--author", multiple=True, help="Author name")
+@click.option("--affiliation", multiple=True, help="Author affiliation")
+@click.option("--no-build", is_flag=True, default=False,
+              help="Skip PDF building")
+def forge(experiment_dir, project_dir, extra_docs, overview, api_key, endpoint,
+          deployment, lang, title_en, title_ja, template, author, affiliation, no_build):
+    """Fully automated: experiment directory -> paper PDF.
+
+    Scans EXPERIMENT_DIR for data files, images, logs, and documents.
+    Optionally adds external docs (--doc report.docx --doc notes.pdf).
+    AI generates the full paper and builds PDF.
+
+    Examples:
+
+    \b
+      paper-forge forge ./experiments/
+      paper-forge forge ./experiments/ --doc report.docx --doc notes.pdf
+      paper-forge forge ./experiments/ --title-en "Effect of X" --author "Alice"
+      paper-forge forge ./experiments/ --overview overview.txt
+    """
+    from .pipeline import Pipeline
+
+    exp_path = Path(experiment_dir).resolve()
+    if not exp_path.exists():
+        click.echo(f"Error: experiment directory not found: {experiment_dir}", err=True)
+        sys.exit(1)
+
+    if not project_dir:
+        project_dir = str(exp_path.parent / (exp_path.name + "_paper"))
+
+    authors = []
+    for i, name in enumerate(author):
+        aff = affiliation[i] if i < len(affiliation) else ""
+        authors.append({"name": name, "affiliation": aff})
+
+    pipeline = Pipeline(project_dir)
+
+    click.echo(f"Experiment directory: {experiment_dir}")
+    click.echo(f"Output project:      {project_dir}")
+    if extra_docs:
+        click.echo(f"Extra documents:     {', '.join(extra_docs)}")
+    click.echo("")
+
+    click.echo("Stage 1: Scanning experiment directory...")
+    click.echo("Stage 2: Analyzing data files...")
+    click.echo("Stage 3: Generating paper via Azure OpenAI...")
+
+    try:
+        spec = pipeline.forge(
+            experiment_dir=experiment_dir,
+            extra_docs=list(extra_docs) if extra_docs else None,
+            overview=overview,
+            api_key=api_key,
+            endpoint=endpoint,
+            deployment=deployment,
+            language=lang,
+            title_en=title_en,
+            title_ja=title_ja,
+            template=template,
+            authors=authors or None,
+            build=not no_build,
+        )
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    click.echo(f"\nPaper spec saved: {pipeline.spec_path}")
+
+    if not no_build:
+        click.echo("Stage 4: Building PDF...")
+        output_dir = Path(project_dir) / "output"
+        if output_dir.exists():
+            for pdf in output_dir.glob("*.pdf"):
+                size_kb = pdf.stat().st_size / 1024
+                click.echo(f"  {pdf.name} ({size_kb:.0f} KB)")
+
+    click.echo("\nDone!")
+
+
+@cli.command()
+@click.argument("project_dir")
+@click.option("--overview", required=True,
+              help="Research overview text, or path to a .txt file")
+@click.option("--data", "data_paths", multiple=True,
+              help="Path to data file (CSV/JSON). Can specify multiple.")
+@click.option("--api-key", default=None, envvar="AZURE_OPENAI_API_KEY",
+              help="Azure OpenAI API key")
+@click.option("--endpoint", default=None, envvar="AZURE_OPENAI_ENDPOINT",
+              help="Azure OpenAI endpoint URL")
+@click.option("--deployment", default=None, envvar="AZURE_OPENAI_DEPLOYMENT",
+              help="Azure OpenAI deployment name")
+@click.option("--lang", default="both",
+              type=click.Choice(["en", "ja", "both"]),
+              help="Language for generation")
+@click.option("--title-en", default="", help="Paper title in English")
+@click.option("--title-ja", default="", help="Paper title in Japanese")
+@click.option("--template", default="twocol",
+              type=click.Choice(["twocol", "onecol", "nature", "ieee"]),
+              help="Paper template")
+@click.option("--author", multiple=True, help="Author name")
+@click.option("--affiliation", multiple=True, help="Author affiliation")
+@click.option("--no-build", is_flag=True, default=False,
+              help="Skip PDF building (generate spec only)")
+def generate(project_dir, overview, data_paths, api_key, endpoint, deployment,
+             lang, title_en, title_ja, template, author, affiliation, no_build):
+    """Auto-generate a paper from data + research overview using Azure OpenAI.
+
+    Example:
+        paper-forge generate ./my-project \\
+            --overview "We studied the effect of X on Y..." \\
+            --data results.csv \\
+            --title-en "Effect of X on Y" \\
+            --author "Alice Smith" --affiliation "MIT"
+    """
+    from .pipeline import Pipeline
+
+    authors = []
+    for i, name in enumerate(author):
+        aff = affiliation[i] if i < len(affiliation) else ""
+        authors.append({"name": name, "affiliation": aff})
+
+    pipeline = Pipeline(project_dir)
+
+    click.echo("Stage 1: Analyzing data...")
+    click.echo("Stage 2: Generating paper via Azure OpenAI API...")
+
+    try:
+        spec = pipeline.auto_generate(
+            overview=overview,
+            data_paths=list(data_paths) if data_paths else None,
+            api_key=api_key,
+            endpoint=endpoint,
+            deployment=deployment,
+            language=lang,
+            title_en=title_en or "Untitled Paper",
+            title_ja=title_ja or "無題の論文",
+            template=template,
+            authors=authors or None,
+            build=not no_build,
+        )
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    click.echo(f"Paper spec saved: {pipeline.spec_path}")
+
+    if not no_build:
+        click.echo("Stage 3: Building PDF...")
+        output_dir = Path(project_dir) / "output"
+        if output_dir.exists():
+            for pdf in output_dir.glob("*.pdf"):
+                size_kb = pdf.stat().st_size / 1024
+                click.echo(f"  {pdf.name} ({size_kb:.0f} KB)")
+
+    click.echo("Done!")
+
+
+@cli.command()
 @click.argument("project_dir", default=".")
 @click.option("--host", default="127.0.0.1", help="Host to bind to")
 @click.option("--port", default=5000, help="Port to listen on")

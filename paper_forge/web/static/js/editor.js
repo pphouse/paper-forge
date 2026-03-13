@@ -10,9 +10,12 @@
   let spec = JSON.parse(JSON.stringify(window.PAPERFORGE.spec));
   let currentLang = 'en';
   let previewLang = 'en';
-  let currentTab = 'metadata';
+  let currentTab = 'ai-generate';
   let autoSaveTimer = null;
   const AUTO_SAVE_DELAY = 3000; // ms
+  let uploadedDataFiles = []; // track data files uploaded for AI generation
+  let uploadedExtraDocs = []; // track extra documents for context
+  let aiMode = 'experiment'; // 'experiment' or 'manual'
 
   // ── Initialise ─────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', init);
@@ -23,6 +26,8 @@
     refreshPreview();
     bindKeyboard();
     bindResize();
+    bindDataUpload();
+    loadDiagrams();
   }
 
   // ── Tab management ─────────────────────────────────────────────
@@ -94,7 +99,7 @@
       var hInput = document.getElementById('sec-heading-' + idx);
       var bInput = document.getElementById('sec-body-' + idx);
       if (hInput) hInput.value = (sec.heading || {})[currentLang] || (sec.heading || {}).en || '';
-      if (bInput) bInput.value = (sec.body || {})[currentLang] || (sec.body || {}).en || '';
+      if (bInput) bInput.value = (sec.body || sec.content || {})[currentLang] || (sec.body || sec.content || {}).en || '';
     });
 
     var refs = spec.references || [];
@@ -315,6 +320,244 @@
       container.appendChild(div);
     });
   }
+
+  // ── AI Generate ────────────────────────────────────────────────
+
+  // ── AI mode toggle ───────────────────────────────────────────
+
+  window.setAiMode = function (mode) {
+    aiMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    var expDiv = document.getElementById('ai-mode-experiment');
+    var manDiv = document.getElementById('ai-mode-manual');
+    if (expDiv) expDiv.style.display = mode === 'experiment' ? '' : 'none';
+    if (manDiv) manDiv.style.display = mode === 'manual' ? '' : 'none';
+  };
+
+  function bindDataUpload() {
+    var input = document.getElementById('ai-data-upload');
+    if (input) {
+      input.addEventListener('change', function () {
+        var list = document.getElementById('ai-data-list');
+        list.innerHTML = '';
+        uploadedDataFiles = [];
+        for (var i = 0; i < input.files.length; i++) {
+          var f = input.files[i];
+          uploadedDataFiles.push(f);
+          var span = document.createElement('span');
+          span.className = 'data-item';
+          span.textContent = f.name;
+          list.appendChild(span);
+        }
+      });
+    }
+
+    // Extra docs upload
+    var docsInput = document.getElementById('ai-extra-docs');
+    if (docsInput) {
+      docsInput.addEventListener('change', function () {
+        var list = document.getElementById('ai-extra-docs-list');
+        list.innerHTML = '';
+        uploadedExtraDocs = [];
+        for (var i = 0; i < docsInput.files.length; i++) {
+          var f = docsInput.files[i];
+          uploadedExtraDocs.push(f);
+          var span = document.createElement('span');
+          span.className = 'data-item';
+          span.textContent = f.name + ' (' + (f.size / 1024).toFixed(0) + 'KB)';
+          list.appendChild(span);
+        }
+      });
+    }
+  }
+
+  window.aiGenerate = function () {
+    var overview = document.getElementById('ai-overview').value.trim();
+    var experimentDir = '';
+    var expInput = document.getElementById('ai-experiment-dir');
+    if (expInput) experimentDir = expInput.value.trim();
+
+    // Validate
+    if (aiMode === 'experiment' && !experimentDir) {
+      notify('Please enter an experiment directory path.', 'error');
+      return;
+    }
+    if (aiMode === 'manual' && !overview) {
+      notify('Please enter a research overview.', 'error');
+      return;
+    }
+
+    var titleEn = document.getElementById('ai-title-en').value.trim();
+    var titleJa = document.getElementById('ai-title-ja').value.trim();
+    var template = document.getElementById('ai-template').value;
+
+    var btn = document.getElementById('ai-generate-btn');
+    var statusEl = document.getElementById('ai-status');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="ai-spinner"></span> Generating...';
+    statusEl.className = 'ai-status generating';
+    statusEl.textContent = 'AI is scanning data and drafting your paper... This may take 30-90 seconds.';
+    setStatus('AI generating...', 'saving');
+
+    // Upload extra docs first (if any)
+    var docsPromise;
+    if (uploadedExtraDocs.length > 0) {
+      var docsForm = new FormData();
+      for (var i = 0; i < uploadedExtraDocs.length; i++) {
+        docsForm.append('file-' + i, uploadedExtraDocs[i]);
+      }
+      docsPromise = fetch('/api/project/' + PROJECT + '/extra_docs', {
+        method: 'POST',
+        body: docsForm,
+      }).then(function (r) { return r.json(); });
+    } else {
+      docsPromise = Promise.resolve({ files: [] });
+    }
+
+    // Upload data files (manual mode)
+    var dataPromise;
+    if (aiMode === 'manual' && uploadedDataFiles.length > 0) {
+      var formData = new FormData();
+      for (var i = 0; i < uploadedDataFiles.length; i++) {
+        formData.append('file-' + i, uploadedDataFiles[i]);
+      }
+      dataPromise = fetch('/api/project/' + PROJECT + '/data', {
+        method: 'POST',
+        body: formData,
+      }).then(function (r) { return r.json(); });
+    } else {
+      dataPromise = Promise.resolve({ files: [] });
+    }
+
+    Promise.all([docsPromise, dataPromise])
+      .then(function (results) {
+        var dataFiles = (results[1].files || []).map(function (f) { return 'data/' + f; });
+
+        var payload = {
+          overview: overview,
+          title_en: titleEn || 'Untitled Paper',
+          title_ja: titleJa || '無題の論文',
+          template: template,
+        };
+
+        if (aiMode === 'experiment') {
+          payload.experiment_dir = experimentDir;
+        } else {
+          payload.data_files = dataFiles;
+        }
+
+        return fetch('/api/project/' + PROJECT + '/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      })
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        btn.disabled = false;
+        btn.innerHTML =
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+          'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ' +
+          'Generate Paper with AI';
+
+        if (data.status === 'generated') {
+          statusEl.className = 'ai-status done';
+          statusEl.textContent = 'Paper generated! Sections are now populated.';
+          setStatus('Paper generated', 'success');
+          notify('Paper generated successfully! Check the section tabs.', 'success');
+          window.location.reload();
+        } else {
+          statusEl.className = 'ai-status error';
+          statusEl.textContent = data.error || 'Generation failed.';
+          setStatus('Generation failed', 'error');
+          notify(data.error || 'Generation failed', 'error');
+        }
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        btn.innerHTML =
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+          'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ' +
+          'Generate Paper with AI';
+        statusEl.className = 'ai-status error';
+        statusEl.textContent = 'Error: ' + err.message;
+        setStatus('Generation error', 'error');
+        notify('Error: ' + err.message, 'error');
+      });
+  };
+
+  // ── Diagrams (draw.io / Mermaid) ────────────────────────────────
+
+  function loadDiagrams() {
+    fetch('/api/project/' + PROJECT + '/diagrams')
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) {
+        var container = document.getElementById('diagram-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        var diagrams = data.diagrams || [];
+        if (diagrams.length === 0) {
+          container.innerHTML = '<p style="color:var(--text-secondary);font-size:0.85rem;">No diagrams yet. Use AI Generate to create diagrams automatically.</p>';
+          return;
+        }
+
+        diagrams.forEach(function (d) {
+          var card = document.createElement('div');
+          card.className = 'diagram-card';
+
+          var imgHtml = d.png
+            ? '<img src="' + d.png + '" alt="' + d.id + '" class="diagram-preview">'
+            : '<div class="diagram-no-img">No preview</div>';
+
+          card.innerHTML =
+            imgHtml +
+            '<div class="diagram-info">' +
+              '<strong>' + d.id + '</strong>' +
+              '<div class="diagram-actions">' +
+                '<button class="btn btn-sm" onclick="viewMermaidSource(\'' + d.id + '\')">View Source</button>' +
+                '<button class="btn btn-sm btn-primary" onclick="openInDrawio(\'' + d.id + '\')">Open in draw.io</button>' +
+              '</div>' +
+            '</div>';
+          container.appendChild(card);
+        });
+      })
+      .catch(function () {});
+  }
+
+  // Store mermaid sources for the viewer
+  var mermaidSources = {};
+
+  window.viewMermaidSource = function (figId) {
+    fetch('/api/project/' + PROJECT + '/diagrams')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var diag = (data.diagrams || []).find(function (d) { return d.id === figId; });
+        if (diag) {
+          alert('Mermaid source for ' + figId + ':\n\n' + diag.mermaid);
+        }
+      });
+  };
+
+  window.openInDrawio = function (figId) {
+    fetch('/api/project/' + PROJECT + '/diagrams')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var diag = (data.diagrams || []).find(function (d) { return d.id === figId; });
+        if (diag && diag.mermaid) {
+          // Open draw.io with mermaid content via URL
+          var encoded = encodeURIComponent(diag.mermaid);
+          var url = 'https://www.draw.io/#Uhttps://mermaid.ink/svg/' + btoa(diag.mermaid);
+          // Fallback: open draw.io directly
+          window.open('https://app.diagrams.net/', '_blank');
+          notify('draw.io opened. Paste your Mermaid code to edit.', 'info');
+        }
+      });
+  };
 
   // ── Keyboard shortcuts ────────────────────────────────────────
 

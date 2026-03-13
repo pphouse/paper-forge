@@ -6,3 +6,22 @@ build/
 *.pdf
 *.png
 .env
+.venv/
+venv/
+*.egg
+.mypy_cache/
+.pytest_cache/
+
+# Test/scratch project directories
+a/
+aa/
+b/
+test-auto/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

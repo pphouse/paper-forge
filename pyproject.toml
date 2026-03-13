@@ -24,7 +24,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ai = ["openai>=1.0.0"]
+docs = ["python-docx>=1.0.0", "PyPDF2>=3.0.0"]
 dev = ["pytest>=7.0", "pytest-cov"]
+all = ["openai>=1.0.0", "python-docx>=1.0.0", "PyPDF2>=3.0.0", "pytest>=7.0", "pytest-cov"]
 
 [project.scripts]
 paper-forge = "paper_forge.cli:cli"

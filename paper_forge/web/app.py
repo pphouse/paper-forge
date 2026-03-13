@@ -354,8 +354,8 @@ def create_app(projects_dir: str | None = None) -> Flask:
         pdf_path = output_dir / pdf_filename
 
         try:
-            from paper_forge.pdf_builder import PDFBuilder
-            builder = PDFBuilder()
+            from paper_forge.latex_builder import LaTeXBuilder
+            builder = LaTeXBuilder()
             result = builder.build(normalized, str(pdf_path), language=lang)
             return jsonify({"status": "built", "path": result})
         except Exception as e:
@@ -418,6 +418,164 @@ def create_app(projects_dir: str | None = None) -> Flask:
                         c if (c.isalnum() or c in "-_.") else "_" for c in f.filename
                     )
                     dest = figures_dir / safe
+                    f.save(str(dest))
+                    saved.append(safe)
+
+        return jsonify({"status": "uploaded", "files": saved})
+
+    @app.route("/api/project/<name>/diagrams", methods=["GET"])
+    def api_list_diagrams(name: str):
+        """List diagrams (mermaid sources and rendered PNGs) in a project."""
+        if not _project_path(name).exists():
+            return jsonify({"error": "Project not found."}), 404
+
+        figures_dir = _project_path(name) / "figures"
+        diagrams = []
+        if figures_dir.exists():
+            for mmd in sorted(figures_dir.glob("*.mmd")):
+                fig_id = mmd.stem
+                png_exists = (figures_dir / f"{fig_id}.png").exists()
+                mermaid_src = mmd.read_text(encoding="utf-8")
+                diagrams.append({
+                    "id": fig_id,
+                    "mermaid": mermaid_src,
+                    "png": f"/api/project/{name}/figure/{fig_id}.png" if png_exists else None,
+                })
+        return jsonify({"diagrams": diagrams})
+
+    @app.route("/api/project/<name>/figure/<path:filename>", methods=["GET"])
+    def api_get_figure(name: str, filename: str):
+        """Serve a figure file."""
+        if not _project_path(name).exists():
+            return jsonify({"error": "Project not found."}), 404
+        fig_path = _project_path(name) / "figures" / filename
+        if not fig_path.exists():
+            return jsonify({"error": "Figure not found."}), 404
+        return send_file(str(fig_path))
+
+    @app.route("/api/project/<name>/data", methods=["POST"])
+    def api_upload_data(name: str):
+        """Upload data files to a project's data/ directory."""
+        if not _project_path(name).exists():
+            return jsonify({"error": "Project not found."}), 404
+
+        data_dir = _project_path(name) / "data"
+        data_dir.mkdir(exist_ok=True)
+        saved: list[str] = []
+
+        if request.files:
+            for key, f in request.files.items():
+                if f.filename:
+                    safe = "".join(
+                        c if (c.isalnum() or c in "-_.") else "_" for c in f.filename
+                    )
+                    dest = data_dir / safe
+                    f.save(str(dest))
+                    saved.append(safe)
+
+        return jsonify({"status": "uploaded", "files": saved})
+
+    @app.route("/api/project/<name>/generate", methods=["POST"])
+    def api_generate(name: str):
+        """Auto-generate paper content using AI.
+
+        Supports two modes:
+        1. Overview + data files (existing flow)
+        2. Experiment directory (new forge flow)
+        """
+        if not _project_path(name).exists():
+            return jsonify({"error": "Project not found."}), 404
+
+        data = request.get_json(force=True)
+        overview = data.get("overview", "").strip()
+        experiment_dir = data.get("experiment_dir", "").strip()
+
+        proj = _project_path(name)
+        api_key = data.get("api_key") or os.environ.get("AZURE_OPENAI_API_KEY", "")
+        endpoint = data.get("endpoint") or os.environ.get("AZURE_OPENAI_ENDPOINT", "")
+        deployment = data.get("deployment") or os.environ.get("AZURE_OPENAI_DEPLOYMENT", "")
+        title_en = data.get("title_en", "Untitled Paper")
+        title_ja = data.get("title_ja", "無題の論文")
+        template = data.get("template", "twocol")
+
+        try:
+            from paper_forge.pipeline import Pipeline
+            pipeline = Pipeline(str(proj))
+
+            if experiment_dir:
+                # ── Forge mode: scan experiment directory ──
+                exp_path = Path(experiment_dir).expanduser().resolve()
+                if not exp_path.exists():
+                    return jsonify({"error": f"Experiment directory not found: {experiment_dir}"}), 400
+
+                # Collect extra uploaded docs
+                extra_docs_dir = proj / "extra_docs"
+                extra_doc_paths = []
+                if extra_docs_dir.exists():
+                    for f in extra_docs_dir.iterdir():
+                        if f.is_file():
+                            extra_doc_paths.append(str(f))
+
+                spec = pipeline.forge(
+                    experiment_dir=str(exp_path),
+                    extra_docs=extra_doc_paths or None,
+                    overview=overview,
+                    api_key=api_key,
+                    endpoint=endpoint,
+                    deployment=deployment,
+                    language="both",
+                    title_en=title_en,
+                    title_ja=title_ja,
+                    template=template,
+                    build=False,
+                )
+            else:
+                # ── Legacy mode: overview + uploaded data files ──
+                if not overview:
+                    return jsonify({"error": "Research overview or experiment directory is required."}), 400
+
+                data_files = data.get("data_files", [])
+                resolved_paths = []
+                for df in data_files:
+                    p = proj / df
+                    if p.exists():
+                        resolved_paths.append(str(p))
+
+                spec = pipeline.auto_generate(
+                    overview=overview,
+                    data_paths=resolved_paths or None,
+                    api_key=api_key,
+                    endpoint=endpoint,
+                    deployment=deployment,
+                    language="both",
+                    title_en=title_en,
+                    title_ja=title_ja,
+                    template=template,
+                    build=False,
+                )
+
+            saved = _load_spec(name)
+            return jsonify({"status": "generated", "spec": saved})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/project/<name>/extra_docs", methods=["POST"])
+    def api_upload_extra_docs(name: str):
+        """Upload extra documents (Word/PDF/MD) for context."""
+        if not _project_path(name).exists():
+            return jsonify({"error": "Project not found."}), 404
+
+        docs_dir = _project_path(name) / "extra_docs"
+        docs_dir.mkdir(exist_ok=True)
+        saved: list[str] = []
+
+        if request.files:
+            for key, f in request.files.items():
+                if f.filename:
+                    safe = "".join(
+                        c if (c.isalnum() or c in "-_.") else "_" for c in f.filename
+                    )
+                    dest = docs_dir / safe
                     f.save(str(dest))
                     saved.append(safe)
 

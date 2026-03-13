@@ -55,7 +55,8 @@
 
     <!-- Tabs -->
     <div class="editor-tabs" id="editor-tabs">
-      <button class="tab active" data-tab="metadata" onclick="switchTab('metadata')">Metadata</button>
+      <button class="tab ai-tab active" data-tab="ai-generate" onclick="switchTab('ai-generate')">AI Generate</button>
+      <button class="tab" data-tab="metadata" onclick="switchTab('metadata')">Metadata</button>
       <!-- Section tabs are generated dynamically -->
       <button class="tab" data-tab="references" onclick="switchTab('references')">References</button>
       <button class="tab" data-tab="figures" onclick="switchTab('figures')">Figures</button>
@@ -63,8 +64,84 @@
 
     <!-- Tab panels -->
     <div class="editor-panels" id="editor-panels">
+      <!-- AI Generate panel -->
+      <div class="panel active" id="panel-ai-generate">
+        <div class="ai-generate-card">
+          <p class="ai-desc">
+            Point to your experiment directory and AI will auto-collect data, analyze results,
+            and draft the entire paper. Optionally add external documents for extra context.
+          </p>
+
+          <!-- Mode toggle -->
+          <div class="field-group">
+            <div class="mode-toggle">
+              <button class="mode-btn active" data-mode="experiment" onclick="setAiMode('experiment')">Experiment Dir</button>
+              <button class="mode-btn" data-mode="manual" onclick="setAiMode('manual')">Manual Input</button>
+            </div>
+          </div>
+
+          <!-- Experiment directory mode -->
+          <div id="ai-mode-experiment">
+            <div class="field-group">
+              <label>Experiment Directory (server path)</label>
+              <input type="text" id="ai-experiment-dir" class="full-width"
+                     placeholder="e.g. /home/user/experiments/exp001/">
+              <small style="color:var(--text-secondary)">Full path to the directory containing your experimental results</small>
+            </div>
+          </div>
+
+          <!-- Manual mode (hidden by default) -->
+          <div id="ai-mode-manual" style="display:none">
+            <div class="field-group">
+              <label>Data Files (CSV / JSON)</label>
+              <input type="file" id="ai-data-upload" multiple accept=".csv,.json,.yaml,.yml">
+              <div id="ai-data-list" class="ai-data-list"></div>
+            </div>
+          </div>
+
+          <!-- Common fields -->
+          <div class="field-group">
+            <label>Paper Title (EN)</label>
+            <input type="text" id="ai-title-en" class="full-width" placeholder="e.g. Comparative Study of ML Methods... (auto-derived if empty)">
+          </div>
+          <div class="field-group">
+            <label>Paper Title (JA)</label>
+            <input type="text" id="ai-title-ja" class="full-width" placeholder="e.g. ML手法の比較研究... (auto-derived if empty)">
+          </div>
+          <div class="field-group">
+            <label>Research Overview (optional - auto-derived from experiment data if empty)</label>
+            <textarea id="ai-overview" rows="6"
+              placeholder="Describe your research: what you studied, what methods you used, key findings... Leave empty to auto-derive from experiment data."></textarea>
+          </div>
+          <div class="field-group">
+            <label>Extra Documents (Word / PDF / MD - optional)</label>
+            <input type="file" id="ai-extra-docs" multiple accept=".docx,.pdf,.md,.txt,.pptx">
+            <div id="ai-extra-docs-list" class="ai-data-list"></div>
+          </div>
+          <div class="field-group">
+            <label>Template</label>
+            <select id="ai-template">
+              <option value="twocol">Two Column</option>
+              <option value="onecol">One Column</option>
+              <option value="nature">Nature Style</option>
+              <option value="ieee">IEEE Style</option>
+            </select>
+          </div>
+          <div class="form-actions" style="margin-top:1.25rem">
+            <button class="btn btn-primary" id="ai-generate-btn" onclick="aiGenerate()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              Generate Paper with AI
+            </button>
+            <span id="ai-status" class="ai-status"></span>
+          </div>
+        </div>
+      </div>
+
       <!-- Metadata panel -->
-      <div class="panel active" id="panel-metadata">
+      <div class="panel" id="panel-metadata">
         <div class="field-group">
           <label>Title</label>
           <input type="text" id="field-title" class="full-width"
@@ -104,6 +181,10 @@
           <input type="file" id="figure-upload" multiple accept="image/*,.pdf,.svg"
                  onchange="uploadFigures()">
           <div id="figure-list" class="figure-list"></div>
+        </div>
+        <div class="field-group" style="margin-top:1.5rem">
+          <label>AI-Generated Diagrams (Mermaid / draw.io)</label>
+          <div id="diagram-list" class="diagram-list"></div>
         </div>
       </div>
     </div>
