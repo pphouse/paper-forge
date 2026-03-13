@@ -11,9 +11,9 @@ feeds everything to Azure OpenAI, and produces a bilingual (EN/JA) academic pape
 ## Installation
 
 ```bash
-pip install git+https://github.com/your-user/paper-forge.git
+pip install git+https://github.com/pphouse/paper-forge.git
 # Or with doc extraction support (Word/PDF):
-pip install "paper-forge[all] @ git+https://github.com/your-user/paper-forge.git"
+pip install "paper-forge[all] @ git+https://github.com/pphouse/paper-forge.git"
 ```
 
 ### System requirements for PDF build
@@ -124,7 +124,7 @@ spec = pipeline.forge(
 When a user says "write a paper from this experiment data":
 
 1. Check if paper-forge is installed: `pip show paper-forge`
-2. If not, install it: `pip install git+https://github.com/your-user/paper-forge.git`
+2. If not, install it: `pip install git+https://github.com/pphouse/paper-forge.git`
 3. Check Azure OpenAI env vars are set
 4. Run: `paper-forge forge . --title-en "..." --author "..."`
 5. The PDF will be in `../*_paper/output/`

@@ -10,7 +10,7 @@ Designed to be invoked by AI coding agents (Claude Code, Codex, etc.) or used di
 
 ```bash
 # Install
-pip install git+https://github.com/your-user/paper-forge.git
+pip install git+https://github.com/pphouse/paper-forge.git
 
 # Set Azure OpenAI credentials
 export AZURE_OPENAI_API_KEY="your-key"
@@ -47,13 +47,13 @@ experiment_dir/                    paper_project/output/
 
 ```bash
 # Basic install
-pip install git+https://github.com/your-user/paper-forge.git
+pip install git+https://github.com/pphouse/paper-forge.git
 
 # With document extraction (Word/PDF/PowerPoint support)
-pip install "paper-forge[docs] @ git+https://github.com/your-user/paper-forge.git"
+pip install "paper-forge[docs] @ git+https://github.com/pphouse/paper-forge.git"
 
 # Full install (AI + docs + dev tools)
-pip install "paper-forge[all] @ git+https://github.com/your-user/paper-forge.git"
+pip install "paper-forge[all] @ git+https://github.com/pphouse/paper-forge.git"
 ```
 
 ### System Dependencies (for PDF build)
