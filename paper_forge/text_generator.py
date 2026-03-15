@@ -58,17 +58,29 @@ OUTPUT JSON SCHEMA:
     {
       "heading": {"en": "Introduction", "ja": "はじめに"},
       "content": {"en": "...", "ja": "..."},
-      "figures": ["fig1"],
+      "figures": ["fig_accuracy_bar"],
       "subsections": [
         {"heading": {"en": "...", "ja": "..."}, "content": {"en": "...", "ja": "..."}}
       ]
     }
   ],
+  "data_figures": {
+    "fig_accuracy_bar": {
+      "type": "bar",
+      "data": {"labels": ["CNN", "RNN", "Transformer"], "values": [0.92, 0.88, 0.95]},
+      "title": "Model Accuracy Comparison",
+      "xlabel": "Model",
+      "ylabel": "Accuracy",
+      "figsize": [6, 4],
+      "caption": {"en": "Comparison of model accuracies", "ja": "モデル精度の比較"},
+      "label": "fig:accuracy"
+    }
+  },
   "diagrams": {
-    "fig1": {
-      "mermaid": "graph TD; A[Input Data] --> B[Processing]; B --> C[Output]",
-      "caption": {"en": "System overview diagram", "ja": "システム概要図"},
-      "label": "fig:overview"
+    "fig_pipeline": {
+      "mermaid": "graph LR; A[Raw Data] --> B[Preprocessing]; B --> C[Model]; C --> D[Evaluation]",
+      "caption": {"en": "Processing pipeline overview", "ja": "処理パイプラインの概要"},
+      "label": "fig:pipeline"
     }
   },
   "tables": {
@@ -85,20 +97,38 @@ OUTPUT JSON SCHEMA:
   "acknowledgments": {"en": "...", "ja": "..."}
 }
 
+DATA FIGURES GUIDELINES (data_figures field) — CRITICAL FOR QUALITY:
+- Generate 2-5 data figures using matplotlib/seaborn from actual experiment data
+- USE REAL DATA VALUES from the data analysis — do NOT use placeholder values
+- Supported types: bar, barh, line, scatter, heatmap, pie, box, violin, confusion_matrix, roc_curve, multi_panel
+- For model comparisons: bar chart with actual metric values
+- For trends over time/epochs: line chart with actual data points
+- For correlations: scatter plot with actual x,y values
+- For distributions: violin or box plot
+- For multi-metric comparison: multi_panel with subplots
+- Each figure must have: type, data (with actual values), title, xlabel, ylabel, caption (bilingual), label
+- Use descriptive fig IDs like "fig_accuracy_bar", "fig_loss_curve", "fig_correlation"
+- Reference figures in section "figures" arrays
+
+DATA FORMAT EXAMPLES BY TYPE:
+- bar:     {"labels": [...], "values": [...]} or grouped: {"labels": [...], "values": [[...],[...]], "group_labels": [...]}
+- line:    {"x": [...], "y": [...]} or multi: {"x": [...], "y": [[...],[...]], "labels": [...]}
+- scatter: {"x": [...], "y": [...]} or with groups: {"x": [...], "y": [...], "hue": [...], "hue_labels": {"0": "A"}}
+- heatmap: {"matrix": [[...]], "xlabels": [...], "ylabels": [...]}
+- box/violin: {"groups": {"Group A": [...], "Group B": [...]}}
+- multi_panel: {"panels": [<sub-specs>], "layout": [nrows, ncols]}
+
 DIAGRAM GUIDELINES (diagrams field):
-- Generate 1-3 diagrams using Mermaid.js syntax
-- Good diagram types: flowcharts (graph TD/LR), sequence diagrams, class diagrams
-- For method pipelines: use graph TD or graph LR with clear step labels
-- For comparisons: use graph TD with parallel branches
+- Generate 1-2 conceptual diagrams using Mermaid.js syntax (method pipelines, architectures)
+- Good types: flowcharts (graph TD/LR), sequence diagrams
 - Use short labels (max 4-5 words per node)
-- Reference diagrams in section "figures" arrays (e.g., ["fig1"])
 - Each diagram needs: mermaid (syntax), caption (bilingual), label
 
 SECTION GUIDELINES:
 - Abstract: 150-250 words, summarize objective/methods/results/conclusion
 - Introduction: 500-800 words, background/motivation/objective
 - Methods: 400-700 words, detailed methodology, subsections recommended
-- Results: 500-800 words, present findings with references to tables
+- Results: 500-800 words, present findings with references to data figures and tables
 - Discussion: 400-700 words, interpret results, limitations, implications
 - Conclusion: 200-300 words, summarize and future work
 """
@@ -205,8 +235,8 @@ class TextGenerator:
             extra_context: Additional context (experiment structure, document text, etc.).
 
         Returns:
-            Tuple of (PaperSpec, diagrams_dict).
-            diagrams_dict maps fig_id -> {"mermaid": str, "caption": {...}, "label": str}
+            Tuple of (PaperSpec, generation_extras).
+            generation_extras is a dict with "diagrams" and "data_figures" keys.
         """
         # Build extra context block
         extra_block = ""
@@ -222,14 +252,14 @@ class TextGenerator:
         )
 
         response_text = self._call_api(_SYSTEM_PROMPT, user_prompt)
-        spec, diagrams = self._parse_response(
+        spec, extras = self._parse_response(
             response_text,
             title_en=title_en,
             title_ja=title_ja,
             authors=authors,
             template=template,
         )
-        return spec, diagrams
+        return spec, extras
 
     def _call_api(self, system: str, user: str, max_retries: int = 3) -> str:
         """Call Azure OpenAI API with retry logic."""
@@ -340,10 +370,11 @@ class TextGenerator:
                         if k in ("name", "affiliation", "email")
                     }))
 
-        # Diagrams (Mermaid)
+        # Diagrams (Mermaid) and data figures (matplotlib)
         diagrams = data.get("diagrams", {})
+        data_figures = data.get("data_figures", {})
 
-        # Build FigureSpec entries for diagrams (path will be filled after rendering)
+        # Build FigureSpec entries for all figures
         figures = {}
         for fig_id, diag in diagrams.items():
             figures[fig_id] = FigureSpec(
@@ -351,6 +382,13 @@ class TextGenerator:
                 caption=BilingualText.from_value(diag.get("caption", {})),
                 label=diag.get("label", f"fig:{fig_id}"),
                 wide=diag.get("wide", False),
+            )
+        for fig_id, dfig in data_figures.items():
+            figures[fig_id] = FigureSpec(
+                path=f"figures/{fig_id}.png",
+                caption=BilingualText.from_value(dfig.get("caption", {})),
+                label=dfig.get("label", f"fig:{fig_id}"),
+                wide=dfig.get("wide", False),
             )
 
         spec = PaperSpec(
@@ -369,4 +407,5 @@ class TextGenerator:
             acknowledgments=BilingualText.from_value(data.get("acknowledgments", {})),
         )
 
-        return spec, diagrams
+        extras = {"diagrams": diagrams, "data_figures": data_figures}
+        return spec, extras

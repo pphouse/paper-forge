@@ -268,7 +268,7 @@ class Pipeline:
             endpoint=endpoint,
             deployment=deployment,
         )
-        spec, diagrams = generator.generate_paper(
+        spec, extras = generator.generate_paper(
             overview=overview,
             data_analysis=combined_analysis,
             title_en=title_en,
@@ -278,8 +278,14 @@ class Pipeline:
         )
 
         # Render Mermaid diagrams to PNG
+        diagrams = extras.get("diagrams", {})
         if diagrams:
             self._render_diagrams(diagrams)
+
+        # Render data figures via FigureEngine (matplotlib/seaborn)
+        data_figures = extras.get("data_figures", {})
+        if data_figures:
+            self._render_data_figures(data_figures)
 
         # Save generated spec
         spec.save(self.spec_path)
@@ -465,7 +471,7 @@ class Pipeline:
             endpoint=endpoint,
             deployment=deployment,
         )
-        spec, diagrams = generator.generate_paper(
+        spec, extras = generator.generate_paper(
             overview=overview,
             data_analysis=combined_analysis,
             title_en=title_en,
@@ -476,8 +482,14 @@ class Pipeline:
         )
 
         # ── 9. Render Mermaid diagrams ──────────────────────────
+        diagrams = extras.get("diagrams", {})
         if diagrams:
             self._render_diagrams(diagrams)
+
+        # ── 9b. Render data figures (matplotlib/seaborn) ────────
+        data_figures = extras.get("data_figures", {})
+        if data_figures:
+            self._render_data_figures(data_figures)
 
         # ── 10. Save spec ───────────────────────────────────────
         spec.save(self.spec_path)
@@ -540,14 +552,27 @@ class Pipeline:
                         encoding="utf-8",
                     )
 
+                # Create mermaid config for publication-quality rendering
+                mermaid_cfg = Path(tempfile.gettempdir()) / "pf_mermaid_cfg.json"
+                if not mermaid_cfg.exists():
+                    mermaid_cfg.write_text(json.dumps({
+                        "theme": "neutral",
+                        "themeVariables": {
+                            "fontSize": "14px",
+                            "fontFamily": "Arial, Helvetica, sans-serif",
+                        },
+                    }), encoding="utf-8")
+
                 if mmdc == "npx":
                     cmd = ["npx", "-y", "@mermaid-js/mermaid-cli", "-i", mmd_path,
-                           "-o", str(output_path), "-b", "white", "-s", "3",
-                           "-p", str(puppeteer_cfg)]
+                           "-o", str(output_path), "-b", "white", "-s", "4",
+                           "-p", str(puppeteer_cfg),
+                           "-c", str(mermaid_cfg)]
                 else:
                     cmd = [mmdc, "-i", mmd_path, "-o", str(output_path),
-                           "-b", "white", "-s", "3",
-                           "-p", str(puppeteer_cfg)]
+                           "-b", "white", "-s", "4",
+                           "-p", str(puppeteer_cfg),
+                           "-c", str(mermaid_cfg)]
 
                 subprocess.run(
                     cmd,
@@ -567,6 +592,47 @@ class Pipeline:
                 pass  # Diagram rendering is best-effort
             finally:
                 Path(mmd_path).unlink(missing_ok=True)
+
+        return rendered
+
+    def _render_data_figures(self, data_figures: dict[str, Any]) -> list[str]:
+        """Render data figures via FigureEngine (matplotlib/seaborn, 300 dpi).
+
+        Args:
+            data_figures: Dict mapping fig_id -> figure spec with type, data, etc.
+
+        Returns:
+            List of generated file paths.
+        """
+        from .figure_engine import FigureEngine
+
+        self.figures_dir.mkdir(parents=True, exist_ok=True)
+        engine = FigureEngine()
+        rendered = []
+
+        for fig_id, fig_spec in data_figures.items():
+            fig_type = fig_spec.get("type")
+            fig_data = fig_spec.get("data")
+            if not fig_type or not fig_data:
+                continue
+
+            output_path = str(self.figures_dir / fig_id)
+
+            try:
+                spec = {
+                    "type": fig_type,
+                    "data": fig_data,
+                    "output": output_path,
+                    "title": fig_spec.get("title", ""),
+                    "xlabel": fig_spec.get("xlabel", ""),
+                    "ylabel": fig_spec.get("ylabel", ""),
+                    "figsize": fig_spec.get("figsize", [6, 4]),
+                    "style": fig_spec.get("style", {}),
+                }
+                saved = engine.create_figure(spec)
+                rendered.append(saved)
+            except Exception:
+                pass  # Figure rendering is best-effort
 
         return rendered
 
