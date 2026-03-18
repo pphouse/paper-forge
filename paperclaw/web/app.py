@@ -1,4 +1,4 @@
-"""PaperForge web application -- interactive editor for research papers."""
+"""PaperClaw web application -- interactive editor for research papers."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from flask import (
 # ---------------------------------------------------------------------------
 # Default project directory
 # ---------------------------------------------------------------------------
-DEFAULT_PROJECTS_DIR = os.path.expanduser("~/paper-forge-projects")
+DEFAULT_PROJECTS_DIR = os.path.expanduser("~/paperclaw-projects")
 
 # ---------------------------------------------------------------------------
 # Default paper spec template
@@ -89,7 +89,7 @@ def _render_markdown(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _projects_dir() -> Path:
-    d = Path(os.environ.get("PAPERFORGE_PROJECTS_DIR", DEFAULT_PROJECTS_DIR))
+    d = Path(os.environ.get("PAPERCLAW_PROJECTS_DIR", DEFAULT_PROJECTS_DIR))
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -249,10 +249,10 @@ def create_app(projects_dir: str | None = None) -> Flask:
         template_folder=os.path.join(os.path.dirname(__file__), "templates"),
         static_folder=os.path.join(os.path.dirname(__file__), "static"),
     )
-    app.config["SECRET_KEY"] = os.environ.get("PAPERFORGE_SECRET", "paperforge-dev-key")
+    app.config["SECRET_KEY"] = os.environ.get("PAPERCLAW_SECRET", "paperclaw-dev-key")
 
     if projects_dir:
-        os.environ["PAPERFORGE_PROJECTS_DIR"] = projects_dir
+        os.environ["PAPERCLAW_PROJECTS_DIR"] = projects_dir
 
     # ------------------------------------------------------------------
     # Page routes
@@ -354,7 +354,7 @@ def create_app(projects_dir: str | None = None) -> Flask:
         pdf_path = output_dir / pdf_filename
 
         try:
-            from paper_forge.latex_builder import LaTeXBuilder
+            from paperclaw.latex_builder import LaTeXBuilder
             builder = LaTeXBuilder()
             result = builder.build(normalized, str(pdf_path), language=lang)
             return jsonify({"status": "built", "path": result})
@@ -371,7 +371,7 @@ def create_app(projects_dir: str | None = None) -> Flask:
 
         # Try PDFBuilder for richer preview
         try:
-            from paper_forge.pdf_builder import PDFBuilder
+            from paperclaw.pdf_builder import PDFBuilder
             builder = PDFBuilder()
             # Use the body content from the full HTML (strip <html>/<head> wrapper)
             full_html = builder.preview_html(normalized, language=lang)
@@ -499,7 +499,7 @@ def create_app(projects_dir: str | None = None) -> Flask:
         template = data.get("template", "twocol")
 
         try:
-            from paper_forge.pipeline import Pipeline
+            from paperclaw.pipeline import Pipeline
             pipeline = Pipeline(str(proj))
 
             if experiment_dir:
@@ -631,7 +631,7 @@ def main() -> None:
     """Run the development server."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="PaperForge editor server")
+    parser = argparse.ArgumentParser(description="PaperClaw editor server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--debug", action="store_true")

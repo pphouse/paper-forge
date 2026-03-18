@@ -1,5 +1,5 @@
 """
-LaTeX-based PDF Builder for PaperForge.
+LaTeX-based PDF Builder for PaperClaw.
 
 Pipeline: paper_spec dict -> LaTeX (via Jinja2) -> PDF (via XeLaTeX).
 Uses XeLaTeX for proper Unicode / CJK font handling.
@@ -159,6 +159,8 @@ def _inline_md(text: str) -> str:
     # (after Markdown conversion so we don't break * syntax)
     text = text.replace('%', r'\%')
     text = text.replace('&', r'\&')
+    text = text.replace('_', r'\_')
+    text = text.replace('#', r'\#')
     return text
 
 
@@ -199,13 +201,13 @@ _LATEX_PREAMBLE_EN = r"""
 \documentclass[10pt,a4paper%(twocol)s]{article}
 
 \usepackage{fontspec}
-\setmainfont{TeX Gyre Termes}[
-  BoldFont = {TeX Gyre Termes Bold},
-  ItalicFont = {TeX Gyre Termes Italic},
-  BoldItalicFont = {TeX Gyre Termes Bold Italic},
+\setmainfont{Times New Roman}[
+  BoldFont = {Times New Roman Bold},
+  ItalicFont = {Times New Roman Italic},
+  BoldItalicFont = {Times New Roman Bold Italic},
 ]
-\setsansfont{TeX Gyre Heros}
-\setmonofont{TeX Gyre Cursor}
+\setsansfont{Helvetica}
+\setmonofont{Courier New}
 
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -236,16 +238,16 @@ _LATEX_PREAMBLE_JA = r"""
 
 \usepackage{fontspec}
 \usepackage{xeCJK}
-\setCJKmainfont{IPAexMincho}
-\setCJKsansfont{IPAexGothic}
-\setCJKmonofont{IPAGothic}
-\setmainfont{TeX Gyre Termes}[
-  BoldFont = {TeX Gyre Termes Bold},
-  ItalicFont = {TeX Gyre Termes Italic},
-  BoldItalicFont = {TeX Gyre Termes Bold Italic},
+\setCJKmainfont{Hiragino Mincho ProN}
+\setCJKsansfont{Hiragino Sans}
+\setCJKmonofont{Osaka-Mono}
+\setmainfont{Times New Roman}[
+  BoldFont = {Times New Roman Bold},
+  ItalicFont = {Times New Roman Italic},
+  BoldItalicFont = {Times New Roman Bold Italic},
 ]
-\setsansfont{TeX Gyre Heros}
-\setmonofont{TeX Gyre Cursor}
+\setsansfont{Helvetica}
+\setmonofont{Courier New}
 
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -335,9 +337,12 @@ class LaTeXBuilder:
                 label = fig.get("label", f"fig:{fig_id}")
                 wide = fig.get("wide", False)
                 env = "figure*" if wide else "figure"
-                parts.append(f'\\begin{{{env}}}[htbp]')
+                # Use [H] for strict placement to avoid overlap issues
+                parts.append(f'\\begin{{{env}}}[H]')
                 parts.append(r'\centering')
-                parts.append(f'\\includegraphics[width=0.9\\textwidth]{{{path}}}')
+                # Use columnwidth for single column, textwidth for wide figures
+                width = r'0.95\textwidth' if wide else r'0.95\columnwidth'
+                parts.append(f'\\includegraphics[width={width},keepaspectratio]{{{path}}}')
                 parts.append(f'\\caption{{{_inline_md(caption)}}}')
                 parts.append(f'\\label{{{label}}}')
                 parts.append(f'\\end{{{env}}}')
@@ -383,9 +388,9 @@ class LaTeXBuilder:
                     path = fig.get("path", "")
                     caption = _loc(fig.get("caption", ""), language)
                     label = fig.get("label", f"fig:{fig_id}")
-                    parts.append(r'\begin{figure}[htbp]')
+                    parts.append(r'\begin{figure}[H]')
                     parts.append(r'\centering')
-                    parts.append(f'\\includegraphics[width=0.9\\columnwidth]{{{path}}}')
+                    parts.append(f'\\includegraphics[width=0.95\\columnwidth,keepaspectratio]{{{path}}}')
                     parts.append(f'\\caption{{{_inline_md(caption)}}}')
                     parts.append(f'\\label{{{label}}}')
                     parts.append(r'\end{figure}')

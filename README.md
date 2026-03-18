@@ -1,8 +1,8 @@
-# PaperForge
+# PaperClaw
 
 **Experiment directory → Academic paper PDF, fully automated.**
 
-Point PaperForge at your experiment results directory. It scans data files, images, logs, and documents, then uses AI (Azure OpenAI) to draft a complete bilingual (English / Japanese) academic paper and build publication-quality PDFs via XeLaTeX.
+Point PaperClaw at your experiment results directory. It scans data files, images, logs, and documents, then uses AI (Azure OpenAI) to draft a complete bilingual (English / Japanese) academic paper and build publication-quality PDFs via XeLaTeX.
 
 Designed to be invoked by AI coding agents (Claude Code, Codex, etc.) or used directly from the command line.
 
@@ -10,7 +10,7 @@ Designed to be invoked by AI coding agents (Claude Code, Codex, etc.) or used di
 
 ```bash
 # Install
-pip install git+https://github.com/pphouse/paper-forge.git
+pip install git+https://github.com/pphouse/paperclaw.git
 
 # Set Azure OpenAI credentials
 export AZURE_OPENAI_API_KEY="your-key"
@@ -18,7 +18,7 @@ export AZURE_OPENAI_ENDPOINT="https://your-endpoint.openai.azure.com/"
 export AZURE_OPENAI_DEPLOYMENT="gpt-4o"
 
 # Generate paper from experiment directory
-paper-forge forge ./my_experiment/
+paperclaw forge ./my_experiment/
 ```
 
 That's it. Output lands in `./my_experiment_paper/output/`.
@@ -47,13 +47,13 @@ experiment_dir/                    paper_project/output/
 
 ```bash
 # Basic install
-pip install git+https://github.com/pphouse/paper-forge.git
+pip install git+https://github.com/pphouse/paperclaw.git
 
 # With document extraction (Word/PDF/PowerPoint support)
-pip install "paper-forge[docs] @ git+https://github.com/pphouse/paper-forge.git"
+pip install "paperclaw[docs] @ git+https://github.com/pphouse/paperclaw.git"
 
 # Full install (AI + docs + dev tools)
-pip install "paper-forge[all] @ git+https://github.com/pphouse/paper-forge.git"
+pip install "paperclaw[all] @ git+https://github.com/pphouse/paperclaw.git"
 ```
 
 ### System Dependencies (for PDF build)
@@ -69,17 +69,17 @@ brew install --cask mactex
 
 ## Usage
 
-### `paper-forge forge` — The Main Command
+### `paperclaw forge` — The Main Command
 
 ```bash
 # Minimal: just point at experiment dir
-paper-forge forge ./experiments/
+paperclaw forge ./experiments/
 
 # Add external documents for context
-paper-forge forge ./experiments/ --doc report.docx --doc literature_review.pdf
+paperclaw forge ./experiments/ --doc report.docx --doc literature_review.pdf
 
 # Full options
-paper-forge forge ./experiments/ \
+paperclaw forge ./experiments/ \
     --title-en "Comparative Analysis of Deep Learning Methods" \
     --title-ja "深層学習手法の比較分析" \
     --author "Alice Smith" --affiliation "MIT" \
@@ -106,10 +106,10 @@ paper-forge forge ./experiments/ \
 ### Other Commands
 
 ```bash
-paper-forge build ./paper_project/ --lang all    # Rebuild PDFs
-paper-forge status ./paper_project/              # Show project status
-paper-forge analyze ./data/results.csv           # Analyze a data file
-paper-forge edit ./paper_project/ --port 5000    # Web editor
+paperclaw build ./paper_project/ --lang all    # Rebuild PDFs
+paperclaw status ./paper_project/              # Show project status
+paperclaw analyze ./data/results.csv           # Analyze a data file
+paperclaw edit ./paper_project/ --port 5000    # Web editor
 ```
 
 ## For AI Agents (Claude Code, Codex)
@@ -119,10 +119,10 @@ See [`CLAUDE.md`](./CLAUDE.md) for detailed agent instructions.
 Typical workflow:
 ```
 User: "この実験結果から論文を書いて"
-Agent: pip install paper-forge → paper-forge forge . → PDF ready
+Agent: pip install paperclaw → paperclaw forge . → PDF ready
 ```
 
-PaperForge is designed to work as a tool that AI agents call. The `CLAUDE.md` file contains structured instructions so agents know exactly how to use every command.
+PaperClaw is designed to work as a tool that AI agents call. The `CLAUDE.md` file contains structured instructions so agents know exactly how to use every command.
 
 ## Environment Variables
 
@@ -135,7 +135,7 @@ PaperForge is designed to work as a tool that AI agents call. The `CLAUDE.md` fi
 ## Python API
 
 ```python
-from paper_forge.pipeline import Pipeline
+from paperclaw.pipeline import Pipeline
 
 # Full auto from experiment directory
 pipeline = Pipeline("./output_paper")

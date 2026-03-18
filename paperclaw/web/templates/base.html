@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}PaperForge{% endblock %}</title>
+  <title>{% block title %}PaperClaw{% endblock %}</title>
   <style>
     /* ── Reset & Variables ─────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -196,7 +196,7 @@
           <line x1="16" y1="17" x2="8" y2="17"/>
           <polyline points="10 9 9 9 8 9"/>
         </svg>
-        PaperForge
+        PaperClaw
       </a>
       {% block nav_extra %}{% endblock %}
       <div class="navbar-spacer"></div>
@@ -216,7 +216,7 @@
       const current = html.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       html.setAttribute('data-theme', next);
-      localStorage.setItem('paperforge-theme', next);
+      localStorage.setItem('paperclaw-theme', next);
       updateThemeUI(next);
     }
 
@@ -233,7 +233,7 @@
     }
 
     (function() {
-      const saved = localStorage.getItem('paperforge-theme');
+      const saved = localStorage.getItem('paperclaw-theme');
       if (saved) {
         document.documentElement.setAttribute('data-theme', saved);
         updateThemeUI(saved);

@@ -1,6 +1,10 @@
-"""AI-powered text generation for PaperForge using Azure OpenAI API.
+"""AI-powered text generation for PaperClaw.
 
-Generates complete academic paper drafts from research overview + data analysis.
+Supports multiple backends:
+- Claude Code CLI (`claude -p`) - default, no API key needed
+- Azure OpenAI API - for production use
+
+Set PAPERFORGE_BACKEND=azure to use Azure OpenAI, otherwise Claude Code is used.
 """
 
 from __future__ import annotations
@@ -8,6 +12,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -170,11 +176,102 @@ _DEFAULT_API_VERSION = "2025-01-01-preview"
 
 
 # ---------------------------------------------------------------------------
-# TextGenerator
+# Backend selection
 # ---------------------------------------------------------------------------
 
-class TextGenerator:
-    """Generates academic paper content using Azure OpenAI API."""
+def get_backend() -> str:
+    """Get the configured backend: 'claude' or 'azure'."""
+    backend = os.environ.get("PAPERFORGE_BACKEND", "claude").lower()
+    if backend not in ("claude", "azure"):
+        backend = "claude"
+    return backend
+
+
+# ---------------------------------------------------------------------------
+# Claude Code Backend
+# ---------------------------------------------------------------------------
+
+class ClaudeCodeBackend:
+    """Uses Claude Code CLI (`claude -p`) as the AI backend."""
+
+    def __init__(self):
+        # Check if claude command is available
+        try:
+            result = subprocess.run(
+                ["claude", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                raise TextGenerationError("Claude Code CLI not found or not working")
+        except FileNotFoundError:
+            raise TextGenerationError(
+                "Claude Code CLI not found. Install it with: npm install -g @anthropic-ai/claude-code"
+            )
+
+    def call(self, system: str, user: str, max_retries: int = 2) -> str:
+        """Call Claude Code CLI with the given prompts."""
+        # Combine system and user prompts
+        full_prompt = f"""{system}
+
+---
+
+{user}"""
+
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                # Use claude -p with minimal options for reliability
+                # --tools "" disables tool use to get pure text output
+                result = subprocess.run(
+                    [
+                        "claude", "-p", full_prompt,
+                        "--output-format", "text",
+                        "--tools", "",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=600,  # 10 minute timeout for long generation
+                    env={**os.environ, "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"},
+                )
+
+                if result.returncode != 0:
+                    stderr = result.stderr.strip()
+                    if stderr:
+                        raise TextGenerationError(f"Claude Code error: {stderr}")
+                    # Sometimes returncode is non-zero but output is fine
+                    if not result.stdout.strip():
+                        raise TextGenerationError("Claude Code returned no output")
+
+                output = result.stdout.strip()
+                if not output:
+                    raise TextGenerationError("Claude Code returned empty response")
+
+                return output
+
+            except subprocess.TimeoutExpired:
+                last_error = "Claude Code timed out after 10 minutes"
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+            except TextGenerationError:
+                raise
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+
+        raise TextGenerationError(
+            f"Claude Code call failed after {max_retries} attempts: {last_error}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Azure OpenAI Backend
+# ---------------------------------------------------------------------------
+
+class AzureOpenAIBackend:
+    """Uses Azure OpenAI API as the AI backend."""
 
     def __init__(
         self,
@@ -185,14 +282,11 @@ class TextGenerator:
     ):
         if AzureOpenAI is None:
             raise ImportError(
-                "The 'openai' package is required for AI text generation. "
+                "The 'openai' package is required for Azure backend. "
                 "Install it with: pip install openai"
             )
 
-        resolved_key = (
-            api_key
-            or os.environ.get("AZURE_OPENAI_API_KEY", "")
-        )
+        resolved_key = api_key or os.environ.get("AZURE_OPENAI_API_KEY", "")
         if not resolved_key:
             raise ValueError(
                 "Azure OpenAI API key is required. "
@@ -212,6 +306,84 @@ class TextGenerator:
             azure_endpoint=self.endpoint,
             api_version=self.api_version,
         )
+
+    def call(self, system: str, user: str, max_retries: int = 3) -> str:
+        """Call Azure OpenAI API with retry logic."""
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.deployment,
+                    max_completion_tokens=16384,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                )
+                content = response.choices[0].message.content
+                if content is None:
+                    raise TextGenerationError("API returned empty response")
+                return content
+            except Exception as e:
+                last_error = e
+                err_str = str(e).lower()
+                if "rate" in err_str or "429" in err_str or "throttl" in err_str:
+                    wait = 2 ** (attempt + 1)
+                    time.sleep(wait)
+                elif attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    break
+
+        raise TextGenerationError(
+            f"Azure OpenAI API call failed after {max_retries} attempts: {last_error}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TextGenerator (unified interface)
+# ---------------------------------------------------------------------------
+
+class TextGenerator:
+    """Generates academic paper content using AI.
+
+    Supports multiple backends:
+    - Claude Code CLI (default): No API key needed, uses `claude -p`
+    - Azure OpenAI: Set PAPERFORGE_BACKEND=azure and configure API keys
+
+    The backend can be selected via:
+    - Environment variable: PAPERFORGE_BACKEND=claude or PAPERFORGE_BACKEND=azure
+    - Constructor parameter: backend="claude" or backend="azure"
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        endpoint: str | None = None,
+        deployment: str | None = None,
+        api_version: str | None = None,
+        backend: str | None = None,
+    ):
+        """Initialize TextGenerator with specified backend.
+
+        Args:
+            api_key: Azure OpenAI API key (only for azure backend)
+            endpoint: Azure OpenAI endpoint URL (only for azure backend)
+            deployment: Azure OpenAI deployment name (only for azure backend)
+            api_version: Azure OpenAI API version (only for azure backend)
+            backend: "claude" or "azure". If None, uses PAPERFORGE_BACKEND env var.
+        """
+        self.backend_name = backend or get_backend()
+
+        if self.backend_name == "azure":
+            self._backend = AzureOpenAIBackend(
+                api_key=api_key,
+                endpoint=endpoint,
+                deployment=deployment,
+                api_version=api_version,
+            )
+        else:
+            self._backend = ClaudeCodeBackend()
 
     def generate_paper(
         self,
@@ -251,7 +423,7 @@ class TextGenerator:
             extra_context=extra_block,
         )
 
-        response_text = self._call_api(_SYSTEM_PROMPT, user_prompt)
+        response_text = self._backend.call(_SYSTEM_PROMPT, user_prompt)
         spec, extras = self._parse_response(
             response_text,
             title_en=title_en,
@@ -260,38 +432,6 @@ class TextGenerator:
             template=template,
         )
         return spec, extras
-
-    def _call_api(self, system: str, user: str, max_retries: int = 3) -> str:
-        """Call Azure OpenAI API with retry logic."""
-        last_error = None
-        for attempt in range(max_retries):
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.deployment,
-                    max_completion_tokens=16384,
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                )
-                content = response.choices[0].message.content
-                if content is None:
-                    raise TextGenerationError("API returned empty response")
-                return content
-            except Exception as e:
-                last_error = e
-                err_str = str(e).lower()
-                if "rate" in err_str or "429" in err_str or "throttl" in err_str:
-                    wait = 2 ** (attempt + 1)
-                    time.sleep(wait)
-                elif attempt < max_retries - 1:
-                    time.sleep(2)
-                else:
-                    break
-
-        raise TextGenerationError(
-            f"Azure OpenAI API call failed after {max_retries} attempts: {last_error}"
-        )
 
     def _parse_response(
         self,
@@ -307,6 +447,14 @@ class TextGenerator:
         json_match = re.search(r"```(?:json)?\s*\n(.*?)```", cleaned, re.DOTALL)
         if json_match:
             cleaned = json_match.group(1).strip()
+
+        # Try to find JSON object in the response
+        if not cleaned.startswith("{"):
+            # Look for first { and last }
+            start = cleaned.find("{")
+            end = cleaned.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                cleaned = cleaned[start:end+1]
 
         try:
             data = json.loads(cleaned)

@@ -1,4 +1,4 @@
-"""Data models for PaperForge paper specifications."""
+"""Data models for PaperClaw paper specifications."""
 
 from __future__ import annotations
 

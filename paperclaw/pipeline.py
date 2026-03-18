@@ -1,4 +1,4 @@
-"""Main pipeline for PaperForge - orchestrates the paper generation process."""
+"""Main pipeline for PaperClaw - orchestrates the paper generation process."""
 
 from __future__ import annotations
 

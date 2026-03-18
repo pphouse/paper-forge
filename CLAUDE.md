@@ -1,9 +1,9 @@
-# PaperForge - AI Agent Instructions
+# PaperClaw - AI Agent Instructions
 
-This file tells Claude Code / Codex / AI agents how to use PaperForge
+This file tells Claude Code / Codex / AI agents how to use PaperClaw
 to auto-generate academic papers from experiment directories.
 
-## What is PaperForge?
+## What is PaperClaw?
 
 A CLI tool that scans an experiment directory (data files, images, logs, docs),
 feeds everything to Azure OpenAI, and produces a bilingual (EN/JA) academic paper as PDF.
@@ -11,9 +11,9 @@ feeds everything to Azure OpenAI, and produces a bilingual (EN/JA) academic pape
 ## Installation
 
 ```bash
-pip install git+https://github.com/pphouse/paper-forge.git
+pip install git+https://github.com/pphouse/paperclaw.git
 # Or with doc extraction support (Word/PDF):
-pip install "paper-forge[all] @ git+https://github.com/pphouse/paper-forge.git"
+pip install "paperclaw[all] @ git+https://github.com/pphouse/paperclaw.git"
 ```
 
 ### System requirements for PDF build
@@ -23,19 +23,19 @@ pip install "paper-forge[all] @ git+https://github.com/pphouse/paper-forge.git"
 sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-lang-japanese fonts-ipaexfont
 ```
 
-## Primary Command: `paper-forge forge`
+## Primary Command: `paperclaw forge`
 
 This is the main command. Run it from or pointed at an experiment directory.
 
 ```bash
 # Minimal - just point at the experiment dir
-paper-forge forge /path/to/experiment/
+paperclaw forge /path/to/experiment/
 
 # With extra documents for context
-paper-forge forge /path/to/experiment/ --doc report.docx --doc notes.pdf
+paperclaw forge /path/to/experiment/ --doc report.docx --doc notes.pdf
 
 # Full options
-paper-forge forge /path/to/experiment/ \
+paperclaw forge /path/to/experiment/ \
     --title-en "Effect of X on Y" \
     --title-ja "XがYに与える影響" \
     --author "Alice Smith" --affiliation "MIT" \
@@ -94,22 +94,22 @@ export AZURE_OPENAI_DEPLOYMENT="gpt-4o"  # or your deployment name
 
 ```bash
 # Build/rebuild PDF from existing spec
-paper-forge build ./experiment_paper/ --lang all
+paperclaw build ./experiment_paper/ --lang all
 
 # Check project status
-paper-forge status ./experiment_paper/
+paperclaw status ./experiment_paper/
 
 # Analyze a single data file
-paper-forge analyze ./data/results.csv
+paperclaw analyze ./data/results.csv
 
 # Launch web editor for manual editing
-paper-forge edit ./experiment_paper/ --host 0.0.0.0 --port 5000
+paperclaw edit ./experiment_paper/ --host 0.0.0.0 --port 5000
 ```
 
 ## Python API
 
 ```python
-from paper_forge.pipeline import Pipeline
+from paperclaw.pipeline import Pipeline
 
 pipeline = Pipeline("./output_paper")
 spec = pipeline.forge(
@@ -123,10 +123,10 @@ spec = pipeline.forge(
 
 When a user says "write a paper from this experiment data":
 
-1. Check if paper-forge is installed: `pip show paper-forge`
-2. If not, install it: `pip install git+https://github.com/pphouse/paper-forge.git`
+1. Check if paperclaw is installed: `pip show paperclaw`
+2. If not, install it: `pip install git+https://github.com/pphouse/paperclaw.git`
 3. Check Azure OpenAI env vars are set
-4. Run: `paper-forge forge . --title-en "..." --author "..."`
+4. Run: `paperclaw forge . --title-en "..." --author "..."`
 5. The PDF will be in `../*_paper/output/`
 
 ## File Types Recognized
