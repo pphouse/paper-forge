@@ -45,7 +45,15 @@ experiment_dir/          project_dir/output/
 /paper-figures <project_dir>
 ```
 
-### Step 4: Build PDF
+### Step 4: QA Check (OCR + Consistency)
+```
+/paper-qa <project_dir>
+```
+- OCRで図中のテキスト・数値を抽出
+- 本文との整合性をチェック
+- 問題があれば修正してStep 3に戻る
+
+### Step 5: Build PDF
 ```
 /paper-build <project_dir> --lang all
 ```

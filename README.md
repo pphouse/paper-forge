@@ -107,6 +107,7 @@ PaperClaw provides skills for step-by-step paper generation:
 | `/paper-analyze` | Scan and analyze experiment data |
 | `/paper-generate` | Generate paper_spec.yaml content |
 | `/paper-figures` | Create data visualizations |
+| `/paper-qa` | QA check with OCR (figure-text consistency) |
 | `/paper-build` | Build PDF from spec |
 
 To use skills, copy `.claude/commands/` to your project.

@@ -25,6 +25,7 @@ PaperClaw provides skills in `.claude/commands/` for granular control:
 | `/paper-analyze` | Scan and analyze experiment data |
 | `/paper-generate` | Generate paper_spec.yaml content |
 | `/paper-figures` | Create data visualizations |
+| `/paper-qa` | QA check with OCR (figure-text consistency) |
 | `/paper-build` | Build PDF from spec |
 
 ### Recommended Workflow
@@ -44,7 +45,15 @@ PaperClaw provides skills in `.claude/commands/` for granular control:
    /paper-figures ./paper_project/
    ```
 
-4. **Build** - Compile to PDF
+4. **QA Check** - OCR-based quality assurance
+   ```
+   /paper-qa ./paper_project/
+   ```
+   - 図中の数値・ラベルをOCRで抽出
+   - 本文との整合性チェック
+   - 問題があれば修正して再実行
+
+5. **Build** - Compile to PDF
    ```
    /paper-build ./paper_project/ --lang all
    ```
