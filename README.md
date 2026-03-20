@@ -1,34 +1,34 @@
 # PaperClaw
 
-**Experiment directory → Academic paper PDF, fully automated.**
+**Experiment directory -> Academic paper PDF, fully automated.**
 
-Point PaperClaw at your experiment results directory. It scans data files, images, logs, and documents, then uses AI (Azure OpenAI) to draft a complete bilingual (English / Japanese) academic paper and build publication-quality PDFs via XeLaTeX.
-
-Designed to be invoked by AI coding agents (Claude Code, Codex, etc.) or used directly from the command line.
+Point PaperClaw at your experiment results directory. It scans data files, images, logs, and documents, then uses Claude Code to draft a complete bilingual (English / Japanese) academic paper and build publication-quality PDFs.
 
 ## Quick Start
 
 ```bash
 # Install
-pip install git+https://github.com/pphouse/paperclaw.git
+pip install git+https://github.com/pphouse/paper-forge.git
 
-# Set Azure OpenAI credentials
-export AZURE_OPENAI_API_KEY="your-key"
-export AZURE_OPENAI_ENDPOINT="https://your-endpoint.openai.azure.com/"
-export AZURE_OPENAI_DEPLOYMENT="gpt-4o"
-
-# Generate paper from experiment directory
+# Generate paper from experiment directory (uses Claude Code)
 paperclaw forge ./my_experiment/
 ```
 
 That's it. Output lands in `./my_experiment_paper/output/`.
 
+## Branches
+
+| Branch | Backend | Use Case |
+|--------|---------|----------|
+| `main` | Claude Code CLI | Default - no API keys needed |
+| `azure-openai` | Azure OpenAI API | Production / batch processing |
+
 ## What It Does
 
 ```
 experiment_dir/                    paper_project/output/
-├── results/                       ├── paper_en.pdf    ← English PDF
-│   ├── accuracy.csv     ──────►   ├── paper_ja.pdf    ← Japanese PDF
+├── results/                       ├── paper_en.pdf    <- English PDF
+│   ├── accuracy.csv     ------>   ├── paper_ja.pdf    <- Japanese PDF
 │   └── metrics.json               └── ...
 ├── plots/
 │   └── fig1.png
@@ -39,37 +39,23 @@ experiment_dir/                    paper_project/output/
 1. **Scans** the experiment directory recursively (CSV, JSON, YAML, images, code, logs)
 2. **Analyzes** data files (statistics, column types, suggested visualizations)
 3. **Extracts** text from documents (Word, PDF, Markdown, PowerPoint)
-4. **Generates** a complete paper draft via Azure OpenAI (Abstract → Conclusion)
-5. **Creates** Mermaid diagrams (method pipeline, architecture, etc.) and renders to PNG
-6. **Builds** bilingual PDF via XeLaTeX with proper academic formatting
+4. **Generates** a complete paper draft via Claude Code (Abstract -> Conclusion)
+5. **Creates** figures using matplotlib/seaborn
+6. **Builds** bilingual PDF with proper academic formatting
 
 ## Installation
 
 ```bash
 # Basic install
-pip install git+https://github.com/pphouse/paperclaw.git
+pip install git+https://github.com/pphouse/paper-forge.git
 
 # With document extraction (Word/PDF/PowerPoint support)
-pip install "paperclaw[docs] @ git+https://github.com/pphouse/paperclaw.git"
-
-# Full install (AI + docs + dev tools)
-pip install "paperclaw[all] @ git+https://github.com/pphouse/paperclaw.git"
-```
-
-### System Dependencies (for PDF build)
-
-```bash
-# Ubuntu/Debian
-sudo apt-get install -y texlive-xetex texlive-fonts-recommended \
-    texlive-lang-japanese fonts-ipaexfont
-
-# macOS
-brew install --cask mactex
+pip install "paperclaw[docs] @ git+https://github.com/pphouse/paper-forge.git"
 ```
 
 ## Usage
 
-### `paperclaw forge` — The Main Command
+### `paperclaw forge` - The Main Command
 
 ```bash
 # Minimal: just point at experiment dir
@@ -83,7 +69,6 @@ paperclaw forge ./experiments/ \
     --title-en "Comparative Analysis of Deep Learning Methods" \
     --title-ja "深層学習手法の比較分析" \
     --author "Alice Smith" --affiliation "MIT" \
-    --author "Bob Jones" --affiliation "Stanford" \
     --template ieee \
     -o ./my_paper/
 ```
@@ -93,8 +78,8 @@ paperclaw forge ./experiments/ \
 | Option | Description |
 |--------|-------------|
 | `-o, --project-dir DIR` | Output directory (default: `{experiment_dir}_paper`) |
-| `--doc FILE` | Extra document for context — repeatable (`.docx`, `.pdf`, `.md`) |
-| `--overview TEXT` | Research overview (auto-derived from experiment data if omitted) |
+| `--doc FILE` | Extra document for context (repeatable) |
+| `--overview TEXT` | Research overview (auto-derived if omitted) |
 | `--title-en TEXT` | English title (auto-derived if omitted) |
 | `--title-ja TEXT` | Japanese title |
 | `--template STYLE` | `twocol` (default), `onecol`, `nature`, `ieee` |
@@ -109,28 +94,22 @@ paperclaw forge ./experiments/ \
 paperclaw build ./paper_project/ --lang all    # Rebuild PDFs
 paperclaw status ./paper_project/              # Show project status
 paperclaw analyze ./data/results.csv           # Analyze a data file
-paperclaw edit ./paper_project/ --port 5000    # Web editor
+paperclaw preview ./paper_project/ --lang en   # HTML preview
 ```
 
-## For AI Agents (Claude Code, Codex)
+## Claude Code Skills
 
-See [`CLAUDE.md`](./CLAUDE.md) for detailed agent instructions.
+PaperClaw provides skills for step-by-step paper generation:
 
-Typical workflow:
-```
-User: "この実験結果から論文を書いて"
-Agent: pip install paperclaw → paperclaw forge . → PDF ready
-```
+| Skill | Description |
+|-------|-------------|
+| `/paper-forge` | Full automated pipeline |
+| `/paper-analyze` | Scan and analyze experiment data |
+| `/paper-generate` | Generate paper_spec.yaml content |
+| `/paper-figures` | Create data visualizations |
+| `/paper-build` | Build PDF from spec |
 
-PaperClaw is designed to work as a tool that AI agents call. The `CLAUDE.md` file contains structured instructions so agents know exactly how to use every command.
-
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `AZURE_OPENAI_API_KEY` | Yes (for AI generation) | Azure OpenAI API key |
-| `AZURE_OPENAI_ENDPOINT` | Yes | Azure OpenAI endpoint URL |
-| `AZURE_OPENAI_DEPLOYMENT` | Yes | Model deployment name |
+To use skills, copy `.claude/commands/` to your project.
 
 ## Python API
 
@@ -145,12 +124,6 @@ spec = pipeline.forge(
     title_en="My Paper",
     authors=[{"name": "Alice", "affiliation": "MIT"}],
 )
-
-# Or step by step
-pipeline = Pipeline("./output_paper")
-pipeline.init_project(title_en="My Paper", template="twocol")
-analysis = pipeline.analyze_data("./data/results.csv")
-pdf_path = pipeline.build_pdf("en")
 ```
 
 ## File Types Recognized
@@ -159,7 +132,7 @@ pdf_path = pipeline.build_pdf("en")
 |----------|-----------|-------------|
 | Data | `.csv`, `.json`, `.yaml`, `.tsv`, `.xlsx` | Auto-analyzed (stats, column types) |
 | Images | `.png`, `.jpg`, `.svg`, `.tiff`, `.gif` | Copied as paper figures |
-| Documents | `.md`, `.txt`, `.log`, `.tex` | Text extracted for AI context |
+| Documents | `.md`, `.txt`, `.log`, `.tex` | Text extracted for context |
 | Rich docs | `.docx`, `.pdf`, `.pptx` | Text extracted (requires `[docs]` extra) |
 | Code | `.py`, `.r`, `.jl`, `.m`, `.ipynb` | Listed for context |
 
@@ -180,8 +153,7 @@ my_experiment_paper/
 ├── data/                    # Copied/analyzed data
 ├── figures/                 # Images + generated diagrams
 │   ├── fig1.png
-│   ├── fig1.mmd             # Mermaid source
-│   └── copied_image.png
+│   └── fig_roc.png
 └── output/
     ├── paper_en.pdf         # English PDF
     └── paper_ja.pdf         # Japanese PDF

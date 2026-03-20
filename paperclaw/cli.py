@@ -149,12 +149,6 @@ def figures(project_dir, spec):
               help="Extra document (Word/PDF/MD) to include as context. Can repeat.")
 @click.option("--overview", default="",
               help="Research overview text or path to .txt file (auto-derived if omitted)")
-@click.option("--api-key", default=None, envvar="AZURE_OPENAI_API_KEY",
-              help="Azure OpenAI API key")
-@click.option("--endpoint", default=None, envvar="AZURE_OPENAI_ENDPOINT",
-              help="Azure OpenAI endpoint URL")
-@click.option("--deployment", default=None, envvar="AZURE_OPENAI_DEPLOYMENT",
-              help="Azure OpenAI deployment name")
 @click.option("--lang", default="both",
               type=click.Choice(["en", "ja", "both"]),
               help="Language for generation")
@@ -167,8 +161,8 @@ def figures(project_dir, spec):
 @click.option("--affiliation", multiple=True, help="Author affiliation")
 @click.option("--no-build", is_flag=True, default=False,
               help="Skip PDF building")
-def forge(experiment_dir, project_dir, extra_docs, overview, api_key, endpoint,
-          deployment, lang, title_en, title_ja, template, author, affiliation, no_build):
+def forge(experiment_dir, project_dir, extra_docs, overview,
+          lang, title_en, title_ja, template, author, affiliation, no_build):
     """Fully automated: experiment directory -> paper PDF.
 
     Scans EXPERIMENT_DIR for data files, images, logs, and documents.
@@ -208,16 +202,13 @@ def forge(experiment_dir, project_dir, extra_docs, overview, api_key, endpoint,
 
     click.echo("Stage 1: Scanning experiment directory...")
     click.echo("Stage 2: Analyzing data files...")
-    click.echo("Stage 3: Generating paper via Azure OpenAI...")
+    click.echo("Stage 3: Generating paper via Claude Code...")
 
     try:
         spec = pipeline.forge(
             experiment_dir=experiment_dir,
             extra_docs=list(extra_docs) if extra_docs else None,
             overview=overview,
-            api_key=api_key,
-            endpoint=endpoint,
-            deployment=deployment,
             language=lang,
             title_en=title_en,
             title_ja=title_ja,
@@ -248,12 +239,6 @@ def forge(experiment_dir, project_dir, extra_docs, overview, api_key, endpoint,
               help="Research overview text, or path to a .txt file")
 @click.option("--data", "data_paths", multiple=True,
               help="Path to data file (CSV/JSON). Can specify multiple.")
-@click.option("--api-key", default=None, envvar="AZURE_OPENAI_API_KEY",
-              help="Azure OpenAI API key")
-@click.option("--endpoint", default=None, envvar="AZURE_OPENAI_ENDPOINT",
-              help="Azure OpenAI endpoint URL")
-@click.option("--deployment", default=None, envvar="AZURE_OPENAI_DEPLOYMENT",
-              help="Azure OpenAI deployment name")
 @click.option("--lang", default="both",
               type=click.Choice(["en", "ja", "both"]),
               help="Language for generation")
@@ -266,9 +251,9 @@ def forge(experiment_dir, project_dir, extra_docs, overview, api_key, endpoint,
 @click.option("--affiliation", multiple=True, help="Author affiliation")
 @click.option("--no-build", is_flag=True, default=False,
               help="Skip PDF building (generate spec only)")
-def generate(project_dir, overview, data_paths, api_key, endpoint, deployment,
+def generate(project_dir, overview, data_paths,
              lang, title_en, title_ja, template, author, affiliation, no_build):
-    """Auto-generate a paper from data + research overview using Azure OpenAI.
+    """Auto-generate a paper from data + research overview using Claude Code.
 
     Example:
         paperclaw generate ./my-project \\
@@ -287,15 +272,12 @@ def generate(project_dir, overview, data_paths, api_key, endpoint, deployment,
     pipeline = Pipeline(project_dir)
 
     click.echo("Stage 1: Analyzing data...")
-    click.echo("Stage 2: Generating paper via Azure OpenAI API...")
+    click.echo("Stage 2: Generating paper via Claude Code...")
 
     try:
         spec = pipeline.auto_generate(
             overview=overview,
             data_paths=list(data_paths) if data_paths else None,
-            api_key=api_key,
-            endpoint=endpoint,
-            deployment=deployment,
             language=lang,
             title_en=title_en or "Untitled Paper",
             title_ja=title_ja or "無題の論文",

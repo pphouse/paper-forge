@@ -212,9 +212,6 @@ class Pipeline:
         self,
         overview: str,
         data_paths: list[str | Path] | None = None,
-        api_key: str | None = None,
-        endpoint: str | None = None,
-        deployment: str | None = None,
         language: str = "both",
         title_en: str = "Untitled Paper",
         title_ja: str = "無題の論文",
@@ -224,14 +221,11 @@ class Pipeline:
     ) -> PaperSpec:
         """Auto-generate a complete paper from data and research overview.
 
-        Uses Azure OpenAI API to draft all sections, then builds PDF.
+        Uses Claude Code CLI to draft all sections, then builds PDF.
 
         Args:
             overview: Natural language research overview, or path to a .txt file.
             data_paths: Paths to data files (CSV/JSON/YAML) to analyze.
-            api_key: Azure OpenAI API key (or set AZURE_OPENAI_API_KEY env var).
-            endpoint: Azure OpenAI endpoint URL.
-            deployment: Azure OpenAI deployment name.
             language: "en", "ja", or "both".
             title_en: Paper title in English.
             title_ja: Paper title in Japanese.
@@ -262,12 +256,8 @@ class Pipeline:
         # Analyze data files
         combined_analysis = self._collect_data_analyses(data_paths)
 
-        # Generate paper text via Azure OpenAI API
-        generator = TextGenerator(
-            api_key=api_key,
-            endpoint=endpoint,
-            deployment=deployment,
-        )
+        # Generate paper text via Claude Code
+        generator = TextGenerator()
         spec, extras = generator.generate_paper(
             overview=overview,
             data_analysis=combined_analysis,
@@ -311,9 +301,6 @@ class Pipeline:
         experiment_dir: str | Path,
         extra_docs: list[str | Path] | None = None,
         overview: str = "",
-        api_key: str | None = None,
-        endpoint: str | None = None,
-        deployment: str | None = None,
         language: str = "both",
         title_en: str = "",
         title_ja: str = "",
@@ -325,15 +312,12 @@ class Pipeline:
 
         Scans experiment_dir for data, images, text, code.
         Optionally reads extra documents (Word, PDF, MD) for context.
-        Generates the full paper via Azure OpenAI, builds PDF.
+        Generates the full paper via Claude Code, builds PDF.
 
         Args:
             experiment_dir: Path to experiment results directory.
             extra_docs: Optional list of external document paths (.docx, .pdf, .md).
             overview: Research overview text (optional; auto-derived if empty).
-            api_key: Azure OpenAI API key.
-            endpoint: Azure OpenAI endpoint URL.
-            deployment: Azure OpenAI deployment name.
             language: "en", "ja", or "both".
             title_en: Paper title in English (auto-derived if empty).
             title_ja: Paper title in Japanese (auto-derived if empty).
@@ -465,12 +449,8 @@ class Pipeline:
         if not title_ja:
             title_ja = "実験研究"
 
-        # ── 8. Generate paper via AI ────────────────────────────
-        generator = TextGenerator(
-            api_key=api_key,
-            endpoint=endpoint,
-            deployment=deployment,
-        )
+        # ── 8. Generate paper via Claude Code ────────────────────
+        generator = TextGenerator()
         spec, extras = generator.generate_paper(
             overview=overview,
             data_analysis=combined_analysis,

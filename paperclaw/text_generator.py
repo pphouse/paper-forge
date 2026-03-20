@@ -1,10 +1,7 @@
 """AI-powered text generation for PaperClaw.
 
-Supports multiple backends:
-- Claude Code CLI (`claude -p`) - default, no API key needed
-- Azure OpenAI API - for production use
-
-Set PAPERFORGE_BACKEND=azure to use Azure OpenAI, otherwise Claude Code is used.
+Uses Claude Code CLI (`claude -p`) as the AI backend.
+No API keys needed - runs through your Claude Code session.
 """
 
 from __future__ import annotations
@@ -13,15 +10,9 @@ import json
 import os
 import re
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 from typing import Any
-
-try:
-    from openai import AzureOpenAI
-except ImportError:
-    AzureOpenAI = None  # type: ignore[assignment,misc]
 
 from .models import (
     PaperSpec,
@@ -166,25 +157,6 @@ Japanese: {title_ja}
 """
 
 
-# ---------------------------------------------------------------------------
-# Default Azure OpenAI settings
-# ---------------------------------------------------------------------------
-
-_DEFAULT_AZURE_ENDPOINT = "https://gpt5-genome-eastus2.openai.azure.com/"
-_DEFAULT_DEPLOYMENT = "gpt-5.2"
-_DEFAULT_API_VERSION = "2025-01-01-preview"
-
-
-# ---------------------------------------------------------------------------
-# Backend selection
-# ---------------------------------------------------------------------------
-
-def get_backend() -> str:
-    """Get the configured backend: 'claude' or 'azure'."""
-    backend = os.environ.get("PAPERFORGE_BACKEND", "claude").lower()
-    if backend not in ("claude", "azure"):
-        backend = "claude"
-    return backend
 
 
 # ---------------------------------------------------------------------------
@@ -266,124 +238,21 @@ class ClaudeCodeBackend:
         )
 
 
-# ---------------------------------------------------------------------------
-# Azure OpenAI Backend
-# ---------------------------------------------------------------------------
-
-class AzureOpenAIBackend:
-    """Uses Azure OpenAI API as the AI backend."""
-
-    def __init__(
-        self,
-        api_key: str | None = None,
-        endpoint: str | None = None,
-        deployment: str | None = None,
-        api_version: str | None = None,
-    ):
-        if AzureOpenAI is None:
-            raise ImportError(
-                "The 'openai' package is required for Azure backend. "
-                "Install it with: pip install openai"
-            )
-
-        resolved_key = api_key or os.environ.get("AZURE_OPENAI_API_KEY", "")
-        if not resolved_key:
-            raise ValueError(
-                "Azure OpenAI API key is required. "
-                "Set AZURE_OPENAI_API_KEY environment variable or pass api_key parameter."
-            )
-
-        self.endpoint = endpoint or os.environ.get(
-            "AZURE_OPENAI_ENDPOINT", _DEFAULT_AZURE_ENDPOINT
-        )
-        self.deployment = deployment or os.environ.get(
-            "AZURE_OPENAI_DEPLOYMENT", _DEFAULT_DEPLOYMENT
-        )
-        self.api_version = api_version or _DEFAULT_API_VERSION
-
-        self.client = AzureOpenAI(
-            api_key=resolved_key,
-            azure_endpoint=self.endpoint,
-            api_version=self.api_version,
-        )
-
-    def call(self, system: str, user: str, max_retries: int = 3) -> str:
-        """Call Azure OpenAI API with retry logic."""
-        last_error = None
-        for attempt in range(max_retries):
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.deployment,
-                    max_completion_tokens=16384,
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                )
-                content = response.choices[0].message.content
-                if content is None:
-                    raise TextGenerationError("API returned empty response")
-                return content
-            except Exception as e:
-                last_error = e
-                err_str = str(e).lower()
-                if "rate" in err_str or "429" in err_str or "throttl" in err_str:
-                    wait = 2 ** (attempt + 1)
-                    time.sleep(wait)
-                elif attempt < max_retries - 1:
-                    time.sleep(2)
-                else:
-                    break
-
-        raise TextGenerationError(
-            f"Azure OpenAI API call failed after {max_retries} attempts: {last_error}"
-        )
 
 
 # ---------------------------------------------------------------------------
-# TextGenerator (unified interface)
+# TextGenerator
 # ---------------------------------------------------------------------------
 
 class TextGenerator:
-    """Generates academic paper content using AI.
+    """Generates academic paper content using Claude Code CLI.
 
-    Supports multiple backends:
-    - Claude Code CLI (default): No API key needed, uses `claude -p`
-    - Azure OpenAI: Set PAPERFORGE_BACKEND=azure and configure API keys
-
-    The backend can be selected via:
-    - Environment variable: PAPERFORGE_BACKEND=claude or PAPERFORGE_BACKEND=azure
-    - Constructor parameter: backend="claude" or backend="azure"
+    Uses `claude -p` for AI generation - no API keys needed.
     """
 
-    def __init__(
-        self,
-        api_key: str | None = None,
-        endpoint: str | None = None,
-        deployment: str | None = None,
-        api_version: str | None = None,
-        backend: str | None = None,
-    ):
-        """Initialize TextGenerator with specified backend.
-
-        Args:
-            api_key: Azure OpenAI API key (only for azure backend)
-            endpoint: Azure OpenAI endpoint URL (only for azure backend)
-            deployment: Azure OpenAI deployment name (only for azure backend)
-            api_version: Azure OpenAI API version (only for azure backend)
-            backend: "claude" or "azure". If None, uses PAPERFORGE_BACKEND env var.
-        """
-        self.backend_name = backend or get_backend()
-
-        if self.backend_name == "azure":
-            self._backend = AzureOpenAIBackend(
-                api_key=api_key,
-                endpoint=endpoint,
-                deployment=deployment,
-                api_version=api_version,
-            )
-        else:
-            self._backend = ClaudeCodeBackend()
+    def __init__(self):
+        """Initialize TextGenerator with Claude Code backend."""
+        self._backend = ClaudeCodeBackend()
 
     def generate_paper(
         self,

@@ -1,69 +1,84 @@
-# PaperClaw - AI Agent Instructions
+# PaperClaw - Claude Code Instructions
 
-This file tells Claude Code / Codex / AI agents how to use PaperClaw
-to auto-generate academic papers from experiment directories.
+This file tells Claude Code how to use PaperClaw to auto-generate academic papers from experiment directories.
 
 ## What is PaperClaw?
 
-A CLI tool that scans an experiment directory (data files, images, logs, docs),
-feeds everything to Azure OpenAI, and produces a bilingual (EN/JA) academic paper as PDF.
+A CLI tool that scans an experiment directory (data files, images, logs, docs), uses Claude Code to generate content, and produces a bilingual (EN/JA) academic paper as PDF.
 
 ## Installation
 
 ```bash
-pip install git+https://github.com/pphouse/paperclaw.git
-# Or with doc extraction support (Word/PDF):
-pip install "paperclaw[all] @ git+https://github.com/pphouse/paperclaw.git"
+pip install git+https://github.com/pphouse/paper-forge.git
+
+# With doc extraction support (Word/PDF):
+pip install "paperclaw[docs] @ git+https://github.com/pphouse/paper-forge.git"
 ```
 
-### System requirements for PDF build
+## Skills (Step-by-Step Workflow)
+
+PaperClaw provides skills in `.claude/commands/` for granular control:
+
+| Skill | Description |
+|-------|-------------|
+| `/paper-forge` | Full automated pipeline |
+| `/paper-analyze` | Scan and analyze experiment data |
+| `/paper-generate` | Generate paper_spec.yaml content |
+| `/paper-figures` | Create data visualizations |
+| `/paper-build` | Build PDF from spec |
+
+### Recommended Workflow
+
+1. **Analyze** - Understand the experiment data
+   ```
+   /paper-analyze ./experiment_dir/
+   ```
+
+2. **Generate** - Create paper content (you generate this directly)
+   ```
+   /paper-generate ./experiment_dir/ --output ./paper_project/
+   ```
+
+3. **Figures** - Generate visualizations from data
+   ```
+   /paper-figures ./paper_project/
+   ```
+
+4. **Build** - Compile to PDF
+   ```
+   /paper-build ./paper_project/ --lang all
+   ```
+
+## CLI Commands
+
+### `paperclaw forge` - Full Auto
 
 ```bash
-# XeLaTeX + Japanese fonts (required for PDF output)
-sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-lang-japanese fonts-ipaexfont
-```
-
-## Primary Command: `paperclaw forge`
-
-This is the main command. Run it from or pointed at an experiment directory.
-
-```bash
-# Minimal - just point at the experiment dir
-paperclaw forge /path/to/experiment/
-
-# With extra documents for context
-paperclaw forge /path/to/experiment/ --doc report.docx --doc notes.pdf
-
-# Full options
 paperclaw forge /path/to/experiment/ \
     --title-en "Effect of X on Y" \
     --title-ja "XがYに与える影響" \
-    --author "Alice Smith" --affiliation "MIT" \
-    --template twocol \
-    --overview "We studied the effect of X on Y using method Z..."
+    --author "Alice Smith" --affiliation "MIT"
 ```
 
-### What `forge` does automatically:
+### What `forge` does:
 
 1. Scans the experiment directory recursively
-2. Finds and categorizes: CSV/JSON/YAML data, images (PNG/JPG), documents (MD/TXT/logs), code files
+2. Finds and categorizes: CSV/JSON/YAML data, images (PNG/JPG), documents (MD/TXT/logs)
 3. Analyzes all data files (column stats, suggested figure types)
 4. Extracts text from Word (.docx), PDF (.pdf), Markdown (.md) files
-5. Copies images to the paper project as potential figures
-6. Sends all collected context to Azure OpenAI GPT to draft the paper
-7. Generates Mermaid diagrams and renders to PNG
-8. Builds bilingual PDF (English + Japanese) via XeLaTeX
+5. Sends all collected context to Claude Code to draft the paper
+6. Generates matplotlib figures from data
+7. Builds bilingual PDF via WeasyPrint
 
 ### Output
 
-By default, output goes to `{experiment_dir}_paper/`:
 ```
 experiment_paper/
   paper_spec.yaml    # Generated paper spec (editable)
+  figures/           # Generated figures
   output/
     paper_en.pdf     # English PDF
     paper_ja.pdf     # Japanese PDF
-  figures/            # Auto-generated diagrams + copied images
 ```
 
 ### Key Options
@@ -74,23 +89,11 @@ experiment_paper/
 | `--doc FILE` | Add external document for context (repeatable) |
 | `--overview TEXT` | Research overview (auto-derived if omitted) |
 | `--title-en TEXT` | English title (auto-derived if omitted) |
-| `--title-ja TEXT` | Japanese title (auto-derived if omitted) |
+| `--title-ja TEXT` | Japanese title |
 | `--template` | `twocol`, `onecol`, `nature`, `ieee` |
-| `--author TEXT` | Author name (repeatable) |
-| `--affiliation TEXT` | Affiliation matching author order |
-| `--lang` | `en`, `ja`, or `both` (default: both) |
 | `--no-build` | Generate spec only, skip PDF build |
 
-## Environment Variables
-
-```bash
-# Required for AI generation
-export AZURE_OPENAI_API_KEY="your-key"
-export AZURE_OPENAI_ENDPOINT="https://your-endpoint.openai.azure.com/"
-export AZURE_OPENAI_DEPLOYMENT="gpt-4o"  # or your deployment name
-```
-
-## Other Useful Commands
+## Other Commands
 
 ```bash
 # Build/rebuild PDF from existing spec
@@ -102,8 +105,8 @@ paperclaw status ./experiment_paper/
 # Analyze a single data file
 paperclaw analyze ./data/results.csv
 
-# Launch web editor for manual editing
-paperclaw edit ./experiment_paper/ --host 0.0.0.0 --port 5000
+# HTML preview
+paperclaw preview ./experiment_paper/ --lang en
 ```
 
 ## Python API
@@ -119,15 +122,15 @@ spec = pipeline.forge(
 )
 ```
 
-## Typical AI Agent Workflow
+## Typical Workflow
 
 When a user says "write a paper from this experiment data":
 
-1. Check if paperclaw is installed: `pip show paperclaw`
-2. If not, install it: `pip install git+https://github.com/pphouse/paperclaw.git`
-3. Check Azure OpenAI env vars are set
-4. Run: `paperclaw forge . --title-en "..." --author "..."`
-5. The PDF will be in `../*_paper/output/`
+1. Install paperclaw if needed: `pip install git+https://github.com/pphouse/paper-forge.git`
+2. Analyze the experiment data: `/paper-analyze ./experiment/`
+3. Generate paper content: Write `paper_spec.yaml` with bilingual content
+4. Create figures: Use matplotlib to generate figures from data
+5. Build PDF: `paperclaw build ./paper_project/ --lang all`
 
 ## File Types Recognized
 
@@ -137,3 +140,43 @@ When a user says "write a paper from this experiment data":
 | Images | `.png`, `.jpg`, `.jpeg`, `.svg`, `.tiff`, `.bmp`, `.gif` |
 | Documents | `.md`, `.txt`, `.rst`, `.log`, `.tex`, `.docx`, `.pdf`, `.pptx` |
 | Code | `.py`, `.r`, `.jl`, `.m`, `.ipynb` |
+
+## paper_spec.yaml Format
+
+```yaml
+meta:
+  title:
+    en: "Paper Title"
+    ja: "論文タイトル"
+  template: twocol
+
+abstract:
+  en: "..."
+  ja: "..."
+
+sections:
+  - heading:
+      en: "Introduction"
+      ja: "はじめに"
+    content:
+      en: "..."
+      ja: "..."
+    figures: [fig_1]
+    tables: [tab_1]
+
+figures:
+  fig_1:
+    path: "figures/fig_1.png"
+    caption:
+      en: "Figure caption"
+      ja: "図のキャプション"
+    label: "fig:example"
+
+tables:
+  tab_1:
+    caption:
+      en: "Table caption"
+      ja: "表のキャプション"
+    columns: ["Col1", "Col2"]
+    data: [["val1", "val2"]]
+```
