@@ -1,6 +1,6 @@
 # Paper Diagrams
 
-Generate architecture and workflow diagrams, export to PNG, and integrate into paper.
+Generate architecture and workflow diagrams using Graphviz, export to PNG, and integrate into paper.
 
 ## Usage
 
@@ -11,269 +11,121 @@ Generate architecture and workflow diagrams, export to PNG, and integrate into p
 ## What This Does
 
 1. Analyzes the model/system architecture
-2. Generates diagram source file (draw.io XML or Python)
-3. **Exports to PNG** (300 DPI, publication quality)
-4. **Updates paper_spec.yaml** to include the figure
-5. Saves to `<project_dir>/figures/`
+2. Generates diagram using **Graphviz** (Python `graphviz` package)
+3. Exports to **PNG** (300 DPI, publication quality)
+4. Saves source file (`.gv`) for manual editing
+5. **Updates paper_spec.yaml** with figure reference
 
-## Complete Workflow
+## Requirements
+
+```bash
+# Install Graphviz system package
+brew install graphviz    # macOS
+apt install graphviz     # Ubuntu
+
+# Install Python package
+pip install graphviz
+```
+
+## Implementation
 
 When executing this skill, Claude Code should:
 
-### Step 1: Create diagrams directory
+### Step 1: Create directories
 ```bash
-mkdir -p <project_dir>/diagrams
+mkdir -p <project_dir>/figures
 ```
 
-### Step 2: Generate diagram using Python (Recommended)
-
-Use matplotlib for reliable PNG export without external dependencies:
+### Step 2: Generate diagram with Graphviz
 
 ```python
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
-import numpy as np
+#!/usr/bin/env python
+"""Generate architecture diagram using Graphviz."""
 
-def create_architecture_diagram(output_path, title="Model Architecture"):
-    """Create a publication-quality architecture diagram."""
-    fig, ax = plt.subplots(figsize=(12, 7), dpi=300)
-    ax.set_xlim(0, 12)
-    ax.set_ylim(0, 7)
-    ax.axis('off')
+from graphviz import Digraph
+import yaml
+import os
+
+def create_multimodal_architecture(output_path, format='png'):
+    """Create multimodal deep learning architecture diagram."""
+
+    dot = Digraph(comment='Multimodal Architecture')
+    dot.attr(rankdir='LR', size='12,8', dpi='300')
+    dot.attr('node', shape='box', style='rounded,filled',
+             fontname='Helvetica', fontsize='11')
+    dot.attr('edge', fontname='Helvetica', fontsize='9')
 
     # Colors
     colors = {
         'input': '#E8F5E9',
         'encoder_ecg': '#4ECDC4',
         'encoder_img': '#45B7D1',
+        'feature': '#ECEFF1',
         'fusion': '#96CEB4',
         'classifier': '#FFEAA7',
-        'output': '#FF6B6B',
-        'feature': '#ECEFF1'
+        'output': '#FF6B6B'
     }
 
-    def add_box(ax, x, y, w, h, text, color, fontsize=10, fontweight='bold'):
-        box = FancyBboxPatch((x, y), w, h,
-                             boxstyle="round,pad=0.02,rounding_size=0.1",
-                             facecolor=color, edgecolor='#2C3E50', linewidth=2)
-        ax.add_patch(box)
-        ax.text(x + w/2, y + h/2, text, ha='center', va='center',
-                fontsize=fontsize, fontweight=fontweight, wrap=True)
+    # Input cluster
+    with dot.subgraph(name='cluster_input') as c:
+        c.attr(label='Input', style='rounded', color='#CCCCCC')
+        c.node('ecg_input', 'ECG Waveform\n(12-lead)', fillcolor=colors['input'])
+        c.node('xray_input', 'Chest X-ray\n(PA view)', fillcolor=colors['input'])
 
-    def add_arrow(ax, start, end):
-        ax.annotate('', xy=end, xytext=start,
-                   arrowprops=dict(arrowstyle='->', lw=2, color='#2C3E50'))
+    # Encoder cluster
+    with dot.subgraph(name='cluster_encoder') as c:
+        c.attr(label='Encoders', style='rounded', color='#CCCCCC')
+        c.node('ecg_encoder', 'ECG Encoder\n(1D-CNN)', fillcolor=colors['encoder_ecg'])
+        c.node('xray_encoder', 'Image Encoder\n(ResNet-50)', fillcolor=colors['encoder_img'])
 
-    # Title
-    ax.text(6, 6.5, title, ha='center', va='center',
-            fontsize=14, fontweight='bold')
+    # Feature cluster
+    with dot.subgraph(name='cluster_features') as c:
+        c.attr(label='Features', style='rounded', color='#CCCCCC')
+        c.node('ecg_feat', 'ECG Features\n(512-d)', fillcolor=colors['feature'])
+        c.node('xray_feat', 'Image Features\n(512-d)', fillcolor=colors['feature'])
 
-    # Input boxes
-    add_box(ax, 0.5, 4, 1.5, 1, 'ECG\nWaveform', colors['input'], 9)
-    add_box(ax, 0.5, 2, 1.5, 1, 'Chest\nX-ray', colors['input'], 9)
+    # Fusion and output
+    dot.node('fusion', 'Feature Fusion\n(Concatenation)', fillcolor=colors['fusion'])
+    dot.node('combined', 'Combined\n(1024-d)', fillcolor=colors['feature'])
+    dot.node('classifier', 'Classifier\n(FC Layers)', fillcolor=colors['classifier'])
+    dot.node('output', 'AS Prediction\n(Probability)', fillcolor=colors['output'],
+             fontcolor='white')
 
-    # Encoders
-    add_box(ax, 2.5, 3.8, 2, 1.4, 'ECG Encoder\n(1D-CNN)', colors['encoder_ecg'])
-    add_box(ax, 2.5, 1.8, 2, 1.4, 'Image Encoder\n(ResNet)', colors['encoder_img'])
+    # Edges
+    dot.edge('ecg_input', 'ecg_encoder')
+    dot.edge('xray_input', 'xray_encoder')
+    dot.edge('ecg_encoder', 'ecg_feat')
+    dot.edge('xray_encoder', 'xray_feat')
+    dot.edge('ecg_feat', 'fusion')
+    dot.edge('xray_feat', 'fusion')
+    dot.edge('fusion', 'combined')
+    dot.edge('combined', 'classifier')
+    dot.edge('classifier', 'output')
 
-    # Features
-    add_box(ax, 5, 4, 1.2, 0.8, 'ECG\nFeatures', colors['feature'], 8, 'normal')
-    add_box(ax, 5, 2.2, 1.2, 0.8, 'Image\nFeatures', colors['feature'], 8, 'normal')
+    # Info cluster
+    with dot.subgraph(name='cluster_info') as c:
+        c.attr(rank='sink', style='rounded', color='#CCCCCC', label='Configuration')
+        c.node('info_train', 'Training\n3-fold CV\nlr=3e-5, batch=32',
+               fillcolor='#FFF3E0', shape='note')
+        c.node('info_data', 'Dataset\nTrain: 2.16M\nTest: 12,423',
+               fillcolor='#E8EAF6', shape='note')
+        c.node('info_result', 'Results\nAUC: 0.857\nSpec: 99.5%',
+               fillcolor='#E8F5E9', shape='note')
+        c.edge('info_train', 'info_data', style='invis')
+        c.edge('info_data', 'info_result', style='invis')
 
-    # Fusion
-    add_box(ax, 6.8, 2.8, 1.8, 1.4, 'Feature\nFusion', colors['fusion'])
+    # Render
+    output_base = output_path.replace('.png', '').replace('.pdf', '')
+    dot.render(output_base, format=format, cleanup=True)
+    dot.save(f"{output_base}.gv")
 
-    # Classifier
-    add_box(ax, 9.2, 2.9, 1.6, 1.2, 'Classifier\n(FC)', colors['classifier'])
+    print(f"Generated: {output_base}.{format}")
+    print(f"Source: {output_base}.gv")
+    return f"{output_base}.{format}"
 
-    # Output
-    circle = plt.Circle((11.5, 3.5), 0.5, color=colors['output'], ec='#2C3E50', lw=2)
-    ax.add_patch(circle)
-    ax.text(11.5, 3.5, 'AS\nProb', ha='center', va='center',
-            fontsize=9, fontweight='bold', color='white')
-
-    # Arrows
-    add_arrow(ax, (2, 4.5), (2.5, 4.5))
-    add_arrow(ax, (2, 2.5), (2.5, 2.5))
-    add_arrow(ax, (4.5, 4.5), (5, 4.4))
-    add_arrow(ax, (4.5, 2.5), (5, 2.6))
-    add_arrow(ax, (6.2, 4.2), (6.8, 3.8))
-    add_arrow(ax, (6.2, 2.8), (6.8, 3.2))
-    add_arrow(ax, (8.6, 3.5), (9.2, 3.5))
-    add_arrow(ax, (10.8, 3.5), (11, 3.5))
-
-    # Info boxes at bottom
-    info_y = 0.3
-    add_box(ax, 0.5, info_y, 3, 1.2,
-            'Training\n3-fold CV, lr=3e-5\nBatch=32, Adam',
-            '#FFF3E0', 8, 'normal')
-    add_box(ax, 4, info_y, 3, 1.2,
-            'Dataset\nTrain: 2.16M\nTest: 12,423',
-            '#E8EAF6', 8, 'normal')
-    add_box(ax, 7.5, info_y, 3, 1.2,
-            'Results\nAUC: 0.857\nSpec: 99.5%',
-            '#E8F5E9', 8, 'normal')
-
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight',
-                facecolor='white', edgecolor='none')
-    plt.close()
-    print(f"Saved: {output_path}")
-
-# Generate
-create_architecture_diagram("figures/fig_overview.png",
-                           "Multimodal Deep Learning Architecture")
-```
-
-### Step 3: Also save draw.io source (for manual editing)
-
-```python
-drawio_template = '''<?xml version="1.0" encoding="UTF-8"?>
-<mxfile host="app.diagrams.net">
-  <diagram name="Architecture">
-    <!-- Draw.io XML content here -->
-  </diagram>
-</mxfile>
-'''
-
-with open("diagrams/architecture.drawio", "w") as f:
-    f.write(drawio_template)
-```
-
-### Step 4: Update paper_spec.yaml
-
-```python
-import yaml
-
-# Load existing spec
-with open("paper_spec.yaml", "r") as f:
-    spec = yaml.safe_load(f)
-
-# Add or update figure
-if "figures" not in spec:
-    spec["figures"] = {}
-
-spec["figures"]["fig_overview"] = {
-    "path": "figures/fig_overview.png",
-    "caption": {
-        "en": "Overview of the multimodal deep learning architecture for AS prediction.",
-        "ja": "AS予測のためのマルチモーダル深層学習アーキテクチャの概要。"
-    },
-    "label": "fig:overview",
-    "wide": True
-}
-
-# Ensure figure is referenced in Introduction
-for section in spec.get("sections", []):
-    if section.get("heading", {}).get("en") == "Introduction":
-        if "figures" not in section:
-            section["figures"] = []
-        if "fig_overview" not in section["figures"]:
-            section["figures"].append("fig_overview")
-        break
-
-# Save
-with open("paper_spec.yaml", "w") as f:
-    yaml.dump(spec, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-
-print("Updated paper_spec.yaml with fig_overview")
-```
-
-## Alternative: draw.io CLI Export
-
-If draw.io desktop or CLI is available:
-
-```bash
-# Check if draw.io CLI is available
-which drawio || which draw.io
-
-# Export using draw.io CLI (macOS)
-/Applications/draw.io.app/Contents/MacOS/draw.io \
-    --export --format png --scale 2 \
-    --output figures/fig_overview.png \
-    diagrams/architecture.drawio
-
-# Or using npm drawio-export
-npx @diagrams/cli export -f png -s 2 \
-    -o figures/fig_overview.png \
-    diagrams/architecture.drawio
-```
-
-## Diagram Templates
-
-### Template 1: Multimodal Architecture (ML)
-
-```python
-# For multimodal deep learning models
-components = [
-    {"name": "Input A", "type": "input"},
-    {"name": "Encoder A", "type": "encoder"},
-    {"name": "Input B", "type": "input"},
-    {"name": "Encoder B", "type": "encoder"},
-    {"name": "Fusion", "type": "fusion"},
-    {"name": "Classifier", "type": "classifier"},
-    {"name": "Output", "type": "output"}
-]
-```
-
-### Template 2: Data Pipeline
-
-```python
-# For data processing workflows
-components = [
-    {"name": "Raw Data", "type": "input"},
-    {"name": "Preprocessing", "type": "process"},
-    {"name": "Feature Engineering", "type": "process"},
-    {"name": "Model Training", "type": "model"},
-    {"name": "Evaluation", "type": "output"}
-]
-```
-
-### Template 3: System Architecture
-
-```python
-# For multi-component systems
-components = [
-    {"name": "Frontend", "type": "client"},
-    {"name": "API Gateway", "type": "gateway"},
-    {"name": "Service A", "type": "service"},
-    {"name": "Service B", "type": "service"},
-    {"name": "Database", "type": "storage"}
-]
-```
-
-## Full Implementation Script
-
-```python
-#!/usr/bin/env python
-"""Generate architecture diagram and integrate into paper."""
-
-import os
-import yaml
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import FancyBboxPatch
-
-PROJECT_DIR = "."  # Set to project directory
-
-def create_multimodal_architecture(output_path):
-    """Create multimodal architecture diagram."""
-    fig, ax = plt.subplots(figsize=(12, 7), dpi=300)
-    ax.set_xlim(0, 12)
-    ax.set_ylim(0, 7)
-    ax.axis('off')
-
-    # [Full implementation as shown above]
-    # ...
-
-    plt.savefig(output_path, dpi=300, bbox_inches='tight',
-                facecolor='white', edgecolor='none')
-    plt.close()
-    return output_path
 
 def update_paper_spec(spec_path, figure_id, figure_info):
-    """Update paper_spec.yaml with new figure."""
+    """Update paper_spec.yaml with figure reference."""
     with open(spec_path, 'r', encoding='utf-8') as f:
         spec = yaml.safe_load(f)
 
@@ -282,85 +134,196 @@ def update_paper_spec(spec_path, figure_id, figure_info):
 
     spec['figures'][figure_id] = figure_info
 
+    # Add to Introduction if not present
+    for section in spec.get('sections', []):
+        if section.get('heading', {}).get('en') == 'Introduction':
+            if 'figures' not in section:
+                section['figures'] = []
+            if figure_id not in section['figures']:
+                section['figures'].append(figure_id)
+            break
+
     with open(spec_path, 'w', encoding='utf-8') as f:
         yaml.dump(spec, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
-    return spec
+    print(f"Updated: {spec_path}")
 
-def main():
-    os.makedirs(f"{PROJECT_DIR}/figures", exist_ok=True)
-    os.makedirs(f"{PROJECT_DIR}/diagrams", exist_ok=True)
 
-    # 1. Generate diagram
-    output_path = f"{PROJECT_DIR}/figures/fig_overview.png"
-    create_multimodal_architecture(output_path)
-    print(f"Generated: {output_path}")
+def main(project_dir):
+    os.makedirs(f"{project_dir}/figures", exist_ok=True)
 
-    # 2. Update paper_spec.yaml
+    # Generate diagram
+    output = create_multimodal_architecture(f"{project_dir}/figures/fig_overview")
+
+    # Update paper_spec.yaml
     figure_info = {
-        "path": "figures/fig_overview.png",
-        "caption": {
-            "en": "Overview of the multimodal deep learning architecture.",
-            "ja": "マルチモーダル深層学習アーキテクチャの概要。"
+        'path': 'figures/fig_overview.png',
+        'caption': {
+            'en': 'Overview of the multimodal deep learning architecture for AS prediction.',
+            'ja': 'AS予測のためのマルチモーダル深層学習アーキテクチャの概要。'
         },
-        "label": "fig:overview",
-        "wide": True
+        'label': 'fig:overview',
+        'wide': True
     }
-    update_paper_spec(f"{PROJECT_DIR}/paper_spec.yaml", "fig_overview", figure_info)
-    print("Updated paper_spec.yaml")
+    update_paper_spec(f"{project_dir}/paper_spec.yaml", 'fig_overview', figure_info)
 
     print("\nDone! Run /paper-build to include in PDF.")
 
+
 if __name__ == "__main__":
-    main()
+    import sys
+    project_dir = sys.argv[1] if len(sys.argv) > 1 else "."
+    main(project_dir)
 ```
 
-## Style Guidelines
+### Step 3: Run the script
 
-### Colors (Consistent Palette)
+```bash
+python generate_architecture.py <project_dir>
+```
+
+## Diagram Templates
+
+### Template 1: Multimodal Architecture (ML)
+
+```python
+def create_multimodal_diagram(dot, inputs, encoders, fusion_name, output_name):
+    """Generic multimodal architecture."""
+    for inp, enc in zip(inputs, encoders):
+        dot.node(inp['id'], inp['label'], fillcolor=inp['color'])
+        dot.node(enc['id'], enc['label'], fillcolor=enc['color'])
+        dot.edge(inp['id'], enc['id'])
+        dot.edge(enc['id'], 'fusion')
+
+    dot.node('fusion', fusion_name, fillcolor='#96CEB4')
+    dot.node('output', output_name, fillcolor='#FF6B6B', fontcolor='white')
+    dot.edge('fusion', 'output')
+```
+
+### Template 2: Data Pipeline
+
+```python
+def create_pipeline_diagram(dot, stages):
+    """Sequential pipeline diagram."""
+    dot.attr(rankdir='TB')  # Top to bottom
+
+    for i, stage in enumerate(stages):
+        dot.node(f's{i}', stage['label'], fillcolor=stage['color'])
+        if i > 0:
+            dot.edge(f's{i-1}', f's{i}')
+```
+
+### Template 3: CNN Architecture (PlotNeuralNet style)
+
+```python
+def create_cnn_diagram(dot, layers):
+    """CNN layer diagram."""
+    prev = None
+    for i, layer in enumerate(layers):
+        node_id = f'layer{i}'
+        label = f"{layer['name']}\n{layer['shape']}"
+        dot.node(node_id, label, fillcolor=layer['color'], shape='box3d')
+        if prev:
+            dot.edge(prev, node_id)
+        prev = node_id
+```
+
+## Color Palette
+
 | Component | Color | Hex |
 |-----------|-------|-----|
-| Input/Data | Light Green | `#E8F5E9` |
-| ECG Encoder | Teal | `#4ECDC4` |
-| Image Encoder | Blue | `#45B7D1` |
+| Input | Light Green | `#E8F5E9` |
+| Encoder (ECG) | Teal | `#4ECDC4` |
+| Encoder (Image) | Blue | `#45B7D1` |
+| Features | Light Gray | `#ECEFF1` |
 | Fusion | Green | `#96CEB4` |
 | Classifier | Yellow | `#FFEAA7` |
 | Output | Red | `#FF6B6B` |
-| Feature/Intermediate | Light Gray | `#ECEFF1` |
+| Training Info | Orange | `#FFF3E0` |
+| Data Info | Indigo | `#E8EAF6` |
 
-### Figure Specifications
-- **DPI**: 300 (publication quality)
-- **Size**: 12x7 inches for wide figures
-- **Format**: PNG with white background
-- **Font**: Sans-serif, 10-12pt
+## Graphviz Quick Reference
 
-## Workflow Integration
+### Node Shapes
+- `box` - Rectangle (default)
+- `box3d` - 3D box (for CNN layers)
+- `ellipse` - Oval
+- `diamond` - Decision
+- `note` - Note/info box
+- `cylinder` - Database
+
+### Graph Directions
+- `rankdir='LR'` - Left to Right
+- `rankdir='TB'` - Top to Bottom
+- `rankdir='BT'` - Bottom to Top
+- `rankdir='RL'` - Right to Left
+
+### Subgraph (Clusters)
+```python
+with dot.subgraph(name='cluster_name') as c:
+    c.attr(label='Label', style='rounded', color='#CCCCCC')
+    c.node('node1', 'Node 1')
+    c.node('node2', 'Node 2')
+```
+
+### Edge Styles
+```python
+dot.edge('a', 'b', style='dashed')   # Dashed
+dot.edge('a', 'b', style='bold')     # Bold
+dot.edge('a', 'b', style='invis')    # Invisible (for alignment)
+dot.edge('a', 'b', label='label')    # With label
+```
+
+## Output Files
+
+```
+project_dir/
+├── figures/
+│   ├── fig_overview.png   # PNG (300 DPI)
+│   └── fig_overview.gv    # Graphviz source (editable)
+└── paper_spec.yaml        # Updated with figure reference
+```
+
+## Workflow
 
 ```
 /paper-analyze ./experiment/
 /paper-generate ./experiment/ --output ./paper/
 /paper-figures ./paper/
-/paper-diagrams ./paper/     # <-- Generate + export + integrate
+/paper-diagrams ./paper/     # <-- Graphviz diagram
 /paper-qa ./paper/
 /paper-build ./paper/
 ```
 
-## Output
+## Editing Diagrams
 
-After running `/paper-diagrams`:
+The `.gv` file can be edited and re-rendered:
 
+```bash
+# Edit the source
+vim figures/fig_overview.gv
+
+# Re-render
+dot -Tpng -Gdpi=300 figures/fig_overview.gv -o figures/fig_overview.png
 ```
-project_dir/
-├── diagrams/
-│   └── architecture.drawio    # Editable source
-├── figures/
-│   └── fig_overview.png       # Exported PNG (300 DPI)
-└── paper_spec.yaml            # Updated with figure reference
-```
+
+Or use online editors:
+- https://dreampuf.github.io/GraphvizOnline/
+- VS Code extension: "Graphviz Preview"
+
+## Why Graphviz?
+
+| Feature | Graphviz | matplotlib | draw.io |
+|---------|----------|------------|---------|
+| Dependencies | Light | Heavy | External app |
+| Editable source | `.gv` (text) | Python code | `.drawio` XML |
+| Auto-layout | Yes | Manual | Manual |
+| PNG export | Built-in | Built-in | Requires CLI |
+| CLI friendly | Yes | Yes | Limited |
 
 ## Notes
 
-- Python/matplotlib method is preferred (no external dependencies)
-- draw.io XML is saved for manual editing if needed
-- Figure is automatically added to paper_spec.yaml
-- Run `/paper-build` after to include in final PDF
+- Graphviz automatically handles node layout
+- Source files (`.gv`) are plain text and git-friendly
+- Can also export to SVG, PDF formats
+- Use `dpi='300'` for publication quality
