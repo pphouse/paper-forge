@@ -62,8 +62,9 @@ experiment_dir/              project_dir/output/
 /paper-diagrams <project_dir>
 ```
 - Model architecture overview
-- Uses draw.io format (editable)
-- Exports to PNG for paper
+- Generates PNG (300 DPI) using matplotlib
+- Saves draw.io source for manual editing
+- **Auto-updates paper_spec.yaml** with figure reference
 
 ### Step 5: QA Check
 ```
