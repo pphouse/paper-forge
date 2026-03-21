@@ -106,9 +106,21 @@ PaperClaw provides skills for step-by-step paper generation:
 | `/paper-forge` | Full automated pipeline |
 | `/paper-analyze` | Scan and analyze experiment data |
 | `/paper-generate` | Generate paper_spec.yaml content |
-| `/paper-figures` | Create data visualizations |
+| `/paper-figures` | Create data visualizations (ROC, bar charts, etc.) |
+| `/paper-diagrams` | Create architecture diagrams (draw.io format) |
 | `/paper-qa` | QA check with OCR (figure-text consistency) |
 | `/paper-build` | Build PDF from spec |
+
+### Recommended Workflow
+
+```
+/paper-analyze ./experiment/
+/paper-generate ./experiment/ --output ./paper/
+/paper-figures ./paper/
+/paper-diagrams ./paper/      # Optional: architecture diagrams
+/paper-qa ./paper/            # Quality check before build
+/paper-build ./paper/
+```
 
 To use skills, copy `.claude/commands/` to your project.
 

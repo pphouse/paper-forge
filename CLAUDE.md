@@ -24,8 +24,9 @@ PaperClaw provides skills in `.claude/commands/` for granular control:
 | `/paper-forge` | Full automated pipeline |
 | `/paper-analyze` | Scan and analyze experiment data |
 | `/paper-generate` | Generate paper_spec.yaml content |
-| `/paper-figures` | Create data visualizations |
-| `/paper-qa` | QA check with OCR (figure-text consistency) |
+| `/paper-figures` | Create data visualizations (ROC, bar charts, confusion matrix) |
+| `/paper-diagrams` | Create architecture diagrams (draw.io format) |
+| `/paper-qa` | QA check with OCR (figure-text consistency, table layout) |
 | `/paper-build` | Build PDF from spec |
 
 ### Recommended Workflow
@@ -39,24 +40,51 @@ PaperClaw provides skills in `.claude/commands/` for granular control:
    ```
    /paper-generate ./experiment_dir/ --output ./paper_project/
    ```
+   - **IMPORTANT**: Use current year for date (2026, not 2024)
+   - Keep tables small (max 6-8 rows) to avoid layout issues
 
 3. **Figures** - Generate visualizations from data
    ```
    /paper-figures ./paper_project/
    ```
 
-4. **QA Check** - OCR-based quality assurance
+4. **Diagrams** - Create architecture diagrams (optional)
+   ```
+   /paper-diagrams ./paper_project/
+   ```
+   - Creates draw.io XML files (editable)
+   - Exports to PNG for paper inclusion
+
+5. **QA Check** - OCR-based quality assurance
    ```
    /paper-qa ./paper_project/
    ```
    - 図中の数値・ラベルをOCRで抽出
    - 本文との整合性チェック
+   - テーブルレイアウトの検証
    - 問題があれば修正して再実行
 
-5. **Build** - Compile to PDF
+6. **Build** - Compile to PDF
    ```
    /paper-build ./paper_project/ --lang all
    ```
+
+## Best Practices
+
+### Tables (IMPORTANT)
+- **Keep tables under 8 rows** to prevent layout overflow
+- **Split large tables** into multiple smaller tables
+- **Use narrow columns** (2-4 columns preferred)
+- **Place tables in different sections** if needed
+
+### Figures
+- **Use `wide: true`** for overview/architecture diagrams
+- **Use 300 DPI** for publication quality
+- **Run `/paper-qa`** to verify figure-text consistency
+
+### Dates
+- **Always use current year** (check `date` command)
+- Today's date should be used for publication year
 
 ## CLI Commands
 
@@ -84,6 +112,7 @@ paperclaw forge /path/to/experiment/ \
 ```
 experiment_paper/
   paper_spec.yaml    # Generated paper spec (editable)
+  diagrams/          # draw.io source files
   figures/           # Generated figures
   output/
     paper_en.pdf     # English PDF
@@ -139,7 +168,9 @@ When a user says "write a paper from this experiment data":
 2. Analyze the experiment data: `/paper-analyze ./experiment/`
 3. Generate paper content: Write `paper_spec.yaml` with bilingual content
 4. Create figures: Use matplotlib to generate figures from data
-5. Build PDF: `paperclaw build ./paper_project/ --lang all`
+5. Create architecture diagram: Use `/paper-diagrams` for model overview
+6. QA check: Run `/paper-qa` to verify consistency
+7. Build PDF: `paperclaw build ./paper_project/ --lang all`
 
 ## File Types Recognized
 
@@ -158,6 +189,7 @@ meta:
     en: "Paper Title"
     ja: "論文タイトル"
   template: twocol
+  date: "2026"  # Use current year!
 
 abstract:
   en: "..."
@@ -170,22 +202,56 @@ sections:
     content:
       en: "..."
       ja: "..."
-    figures: [fig_1]
-    tables: [tab_1]
+    figures: [fig_overview]
+
+  - heading:
+      en: "Results"
+      ja: "結果"
+    content:
+      en: "..."
+      ja: "..."
+    figures: [fig_roc]
+    tables: [tab_performance]  # Keep tables small!
 
 figures:
-  fig_1:
-    path: "figures/fig_1.png"
+  fig_overview:
+    path: "figures/fig_overview.png"
     caption:
-      en: "Figure caption"
-      ja: "図のキャプション"
-    label: "fig:example"
+      en: "Model overview"
+      ja: "モデル概要"
+    label: "fig:overview"
+    wide: true  # Span both columns
+
+  fig_roc:
+    path: "figures/fig_roc.png"
+    caption:
+      en: "ROC curve"
+      ja: "ROC曲線"
+    label: "fig:roc"
+    wide: false
 
 tables:
-  tab_1:
+  tab_performance:
     caption:
-      en: "Table caption"
-      ja: "表のキャプション"
-    columns: ["Col1", "Col2"]
-    data: [["val1", "val2"]]
+      en: "Model performance"
+      ja: "モデル性能"
+    columns: ["Metric", "Value"]  # Keep columns narrow
+    data:  # Max 6-8 rows!
+      - ["AUC", "0.857"]
+      - ["Accuracy", "93.2%"]
 ```
+
+## Troubleshooting
+
+### Table overlaps with text
+- Split table into smaller tables (max 6-8 rows)
+- Reduce column count
+- Place tables in different sections
+
+### Figure quality issues
+- Regenerate at 300 DPI
+- Run `/paper-qa` to check resolution
+
+### Numbers don't match between figure and text
+- Re-run `/paper-figures` with correct data
+- Run `/paper-qa` to verify consistency
