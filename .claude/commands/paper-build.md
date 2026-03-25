@@ -1,6 +1,6 @@
 # Paper Build
 
-Build PDF from paper_spec.yaml using paperclaw.
+Build publication-quality PDF from LaTeX source files (EN + JA simultaneously).
 
 ## Usage
 
@@ -8,196 +8,206 @@ Build PDF from paper_spec.yaml using paperclaw.
 /paper-build <project_dir> [--lang en|ja|all]
 ```
 
-## What This Does
+## Output Format (CLIDAS Style)
 
-1. Reads `paper_spec.yaml` from the project directory
-2. Validates all figure paths exist
-3. Renders content using WeasyPrint (HTML/CSS based)
-4. Generates publication-quality PDF(s)
-5. Outputs to `<project_dir>/output/`
+Papers are generated in clean academic format:
+- Clean title (no panels/boxes)
+- "CLIDAS Research Group" as author
+- Keywords section
+- **Plain text abstract** (no Background/Methods labels)
+- Numbered sections: 1. INTRODUCTION, 2. METHODS, 3. RESULTS, etc.
+- **In-text citations** using `\cite{key}` (e.g., [1], [2,3])
+- Inline figures (no grid, clean spines)
+- Tables with booktabs formatting
+- References at end with `\bibitem{key}`
 
-## Requirements
+## Citation Style
 
-```bash
-pip install /path/to/paper-forge
+Use in-text citations with `\cite{}`:
+
+```latex
+% In text
+Aortic stenosis affects 2--7\% of adults \cite{otto2021}.
+Several studies have shown... \cite{cohen2021,kwon2020}.
+
+% References section
+\begin{thebibliography}{9}
+\bibitem{otto2021}
+Otto CM, et al. 2020 ACC/AHA Guideline... \textit{Circulation}. 2021.
+\bibitem{attia2019}
+Attia ZI, et al. AI-enabled ECG... \textit{The Lancet}. 2019.
+\end{thebibliography}
 ```
 
-## Command
+## Figure Style Requirements
+
+**IMPORTANT:** All figures must be generated with:
+- No grid lines (`axes.grid = False`)
+- No top/right spines
+- White background
+- Clean legend (no frame)
+
+```python
+plt.rcParams['axes.grid'] = False
+plt.rcParams['axes.spines.top'] = False
+plt.rcParams['axes.spines.right'] = False
+plt.rcParams['legend.frameon'] = False
+plt.rcParams['figure.facecolor'] = 'white'
+```
+
+## LaTeX Template (English)
+
+```latex
+\documentclass[10pt,twocolumn]{article}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{times}
+
+\title{\Large\bfseries [Paper Title]}
+
+\author{CLIDAS Research Group\\[0.3em]
+\normalsize Clinical Data Science Consortium, Japan\\[0.5em]
+\normalsize 2026}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\noindent\textbf{Keywords:} keyword1, keyword2, ...
+
+\begin{abstract}
+% Plain text - NO labels like "Background:" or "Methods:"
+Aortic stenosis (AS) is an increasingly prevalent valvular heart disease...
+We developed and validated a multimodal deep learning model...
+The model achieved AUC of 0.857 (95\% CI: 0.844--0.869)...
+Our multimodal approach demonstrates consistent performance...
+\end{abstract}
+
+\section{Introduction}
+...
+
+\section{Methods}
+\subsection{Study Design and Population}
+...
+
+\section{Results}
+...
+
+\section{Discussion}
+...
+
+\section{Conclusion}
+...
+
+\end{document}
+```
+
+## LaTeX Template (Japanese - XeLaTeX)
+
+```latex
+\documentclass[10pt,twocolumn]{article}
+\usepackage{xeCJK}
+\setCJKmainfont{Hiragino Mincho ProN}
+\setCJKsansfont{Hiragino Kaku Gothic ProN}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{float}
+
+\title{\Large\bfseries [日本語タイトル]}
+
+\author{CLIDAS Research Group\\[0.3em]
+\normalsize Clinical Data Science Consortium, Japan\\[0.5em]
+\normalsize 2026}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\noindent\textbf{Keywords:} aortic stenosis, deep learning, ...
+
+\begin{abstract}
+% 日本語要旨（ラベルなし）
+大動脈弁狭窄症（AS）は...
+\end{abstract}
+
+\section{はじめに}
+...
+
+\section{方法}
+\subsection{研究デザインと対象}
+...
+
+\section{結果}
+...
+
+\section{考察}
+...
+
+\section{結論}
+...
+
+\end{document}
+```
+
+## Compilation (Both Languages)
 
 ```bash
 cd <project_dir>
-paperclaw build . --lang all
+
+# English (pdflatex - run twice for references)
+pdflatex -interaction=nonstopmode paper_en.tex
+pdflatex -interaction=nonstopmode paper_en.tex
+
+# Japanese (xelatex - run twice for references)
+xelatex -interaction=nonstopmode paper_ja.tex
+xelatex -interaction=nonstopmode paper_ja.tex
+
+# Move to output
+mkdir -p output
+mv paper_en.pdf paper_ja.pdf output/
 ```
 
 ## Output
 
 ```
 project_dir/
+  paper_en.tex          # English source
+  paper_ja.tex          # Japanese source
+  figures/
+    fig_roc.png         # Clean style (no grid)
+    fig_confusion.png
+    fig_institution.png
   output/
-    Paper_Title_en.pdf    # English version
-    Paper_Title_ja.pdf    # Japanese version
-```
-
-## Templates
-
-| Template | Description | Best For |
-|----------|-------------|----------|
-| `twocol` | Two-column, Times font | General journals |
-| `onecol` | Single column, wide margins | Preprints, theses |
-| `nature` | Nature/Science style | High-impact journals |
-| `ieee` | IEEE conference format | CS conferences |
-
-Set template in `paper_spec.yaml`:
-
-```yaml
-meta:
-  template: twocol
-```
-
-## Layout Best Practices
-
-### Avoiding Table/Text Overlap
-
-Common issue: Tables overflow into adjacent text. Solutions:
-
-1. **Keep tables small**: Max 6-8 rows per table
-   ```yaml
-   tables:
-     tab_1:
-       data:
-         - ["Row1", "Val1"]
-         - ["Row2", "Val2"]
-         # ... max 6-8 rows
-   ```
-
-2. **Split large tables**: Break into multiple tables
-   ```yaml
-   tables:
-     tab_demographics:
-       caption: "Patient demographics"
-       # First part of data
-
-     tab_clinical:
-       caption: "Clinical characteristics"
-       # Second part of data
-   ```
-
-3. **Use narrow columns**: Prefer vertical over horizontal layout
-   ```yaml
-   columns: ["Metric", "Value"]  # Good - 2 columns
-   # vs
-   columns: ["A", "B", "C", "D", "E", "F"]  # Bad - too wide
-   ```
-
-4. **Place tables strategically**: Put in different sections
-   ```yaml
-   sections:
-     - heading: "Methods"
-       tables: [tab_demographics]  # Table 1 here
-
-     - heading: "Results"
-       tables: [tab_performance]   # Table 2 here
-   ```
-
-### Figure Placement
-
-1. **Use `wide: true` for overview figures**
-   ```yaml
-   figures:
-     fig_overview:
-       wide: true  # Spans both columns
-   ```
-
-2. **Keep other figures single-column**
-   ```yaml
-   figures:
-     fig_roc:
-       wide: false  # Fits in one column
-   ```
-
-3. **Reference figures close to placement**
-   - Place figure reference in the section where you discuss it
-
-### Content Length
-
-- **Abstract**: 150-300 words
-- **Each section**: 300-800 words
-- **Subsections**: 100-400 words
-
-## Pre-build Checklist
-
-Run these checks before building:
-
-```bash
-# 1. Validate YAML syntax
-python -c "import yaml; yaml.safe_load(open('paper_spec.yaml'))"
-
-# 2. Check all figure files exist
-for f in figures/*.png; do [ -f "$f" ] && echo "OK: $f" || echo "MISSING: $f"; done
-
-# 3. Check image resolution
-for f in figures/*.png; do
-  identify "$f" 2>/dev/null | grep -oP '\d+x\d+' | head -1
-done
+    paper_en.pdf        # English PDF
+    paper_ja.pdf        # Japanese PDF
 ```
 
 ## Troubleshooting
 
-### PDF build fails
-
-1. **YAML syntax error**
-   ```bash
-   python -c "import yaml; yaml.safe_load(open('paper_spec.yaml'))"
-   ```
-
-2. **Missing figure file**
-   - Check paths in paper_spec.yaml match actual files
-
-3. **Japanese font missing**
-   - Install Japanese fonts: `brew install font-noto-sans-cjk-jp`
-
-### Table overflow
-
-1. Split table into smaller tables
-2. Reduce column count
-3. Shorten cell content
-
-### Figure too large
-
-1. Set `wide: false`
-2. Reduce figure dimensions in matplotlib
-
-## Preview Before PDF
-
-Generate HTML preview first:
-
-```bash
-paperclaw preview <project_dir> --lang en --output preview.html
-open preview.html  # Check layout in browser
+### Grid lines appearing in figures
+Regenerate figures with:
+```python
+plt.style.use('default')
+plt.rcParams['axes.grid'] = False
 ```
 
-## Post-build Review
-
-After building PDF:
-
-1. Check page breaks are sensible
-2. Verify no text/table/figure overlap
-3. Confirm all figures render correctly
-4. Check Japanese text displays properly
-5. Verify references are formatted correctly
-
-## Quick Reference
-
-```bash
-# Build both languages
-paperclaw build . --lang all
-
-# Build English only
-paperclaw build . --lang en
-
-# Preview HTML
-paperclaw preview . --lang en
-
-# Check project status
-paperclaw status .
+### Japanese font issues
+```latex
+\setCJKmainfont{Hiragino Mincho ProN}
 ```
+
+### Abstract has labels
+Remove "Background:", "Methods:", etc. Use plain text only.

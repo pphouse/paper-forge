@@ -1,155 +1,310 @@
-# Paper Forge
+# Paper Forge (Integrated Pipeline)
 
-Full automated workflow: experiment directory -> academic paper PDF.
+AI-driven academic paper writing pipeline. Generates publication-ready bilingual (EN/JA) PDFs from experiment data, following EQUATOR Network guidelines (TRIPOD+AI, STARD-AI).
 
 ## Usage
 
 ```
-/paper-forge <experiment_dir> [--title "Paper Title"] [--author "Author Name"]
+/paper-forge <experiment_dir> [--journal lancet|nature|jama] [--guideline tripod-ai|stard-ai]
 ```
 
-## What This Does
-
-Runs all paper generation steps in sequence:
-
-1. **Analyze** - Scan and analyze experiment data
-2. **Generate** - Create paper_spec.yaml with full content
-3. **Figures** - Generate data visualizations
-4. **Diagrams** - Create architecture diagrams (optional)
-5. **QA** - Quality assurance check
-6. **Build** - Compile PDF (English & Japanese)
-
-## Workflow Diagram
+## System Architecture
 
 ```
-experiment_dir/              project_dir/output/
-├── results.csv        -->   ├── Paper_en.pdf
-├── metrics.json             └── Paper_ja.pdf
-└── notes.md
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    AI-Driven Paper Writing Pipeline                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                  │
+│  │   Agent 1   │    │   Agent 2   │    │   Agent 3   │                  │
+│  │   Data      │    │  Literature │    │   Figure    │                  │
+│  │  Analysis   │    │   Search    │    │ Generation  │                  │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                  │
+│         │                  │                   │                         │
+│         └────────┬─────────┴─────────┬────────┘                         │
+│                  ▼                   ▼                                   │
+│           ┌─────────────┐     ┌─────────────┐                           │
+│           │   Agent 4   │     │   Review    │                           │
+│           │   Paper     │────▶│   Quality   │                           │
+│           │   Writing   │     │   Check     │                           │
+│           └──────┬──────┘     └──────┬──────┘                           │
+│                  │                   │                                   │
+│                  └─────────┬─────────┘                                   │
+│                            ▼                                             │
+│                     ┌─────────────┐                                      │
+│                     │   LaTeX     │                                      │
+│                     │   Build     │                                      │
+│                     │  (EN/JA)    │                                      │
+│                     └──────┬──────┘                                      │
+│                            ▼                                             │
+│                     ┌─────────────┐                                      │
+│                     │    PDF      │                                      │
+│                     │   Output    │                                      │
+│                     └─────────────┘                                      │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Steps
+## Quick Start
 
-### Step 1: Analyze Data
-```
-/paper-analyze <experiment_dir>
-```
-- Scans for CSV, JSON, images, code files
-- Calculates statistics and metrics
-- Identifies cross-validation folds
-- Outputs analysis report
+### Full Automated Pipeline
 
-### Step 2: Generate Content
-```
-/paper-generate <experiment_dir> --output <project_dir>
-```
-- Creates project directory structure
-- Generates paper_spec.yaml with bilingual content
-- Defines figures and tables needed
-- **Important**: Uses current year (2026) for date
+```bash
+# Run complete pipeline
+/paper-forge ./experiments/model_results/ --journal lancet --guideline tripod-ai
 
-### Step 3: Create Data Figures
+# This executes:
+# 1. /paper-analyze   (Agent 1: Data Analysis)
+# 2. /paper-literature (Agent 2: Literature Search)
+# 3. /paper-figures   (Agent 3: Figure Generation)
+# 4. /paper-generate  (Agent 4: Paper Writing + LaTeX)
+# 5. /paper-review    (Quality Check)
+# 6. /paper-build     (PDF Compilation)
 ```
-/paper-figures <project_dir>
-```
-- ROC curves from classification results
-- Bar charts for comparisons
-- Confusion matrices
-- Box plots for distributions
 
-### Step 4: Create Architecture Diagrams (Optional)
-```
-/paper-diagrams <project_dir>
-```
-- Model architecture overview
-- Generates PNG (300 DPI) using matplotlib
-- Saves draw.io source for manual editing
-- **Auto-updates paper_spec.yaml** with figure reference
+### Step-by-Step Execution
 
-### Step 5: QA Check
+```bash
+/paper-analyze ./experiments/                    # Agent 1
+/paper-literature ./paper_project/               # Agent 2
+/paper-figures ./paper_project/                  # Agent 3
+/paper-generate ./paper_project/ --journal lancet # Agent 4
+/paper-review ./paper_project/                   # Quality Check
+/paper-build ./paper_project/ --lang all         # PDF Output
 ```
-/paper-qa <project_dir>
+
+## Workflow Phases
+
+### Phase 1: Data Analysis (Agent 1)
+
 ```
-- OCR extracts text/numbers from figures
-- Compares with paper text for consistency
-- Checks figure quality (resolution, DPI)
-- Validates table layout (max 6-8 rows)
-- Reports issues and recommendations
+/paper-analyze <experiment_dir> --domain cardiology
+```
 
-**If issues found**: Fix and re-run QA before building.
+**Input:**
+- Experiment data (CSV/JSON/images)
+- Target journal specification
 
-### Step 6: Build PDF
+**Output:**
+- `analysis_report.json`: Structured analysis results
+- Performance metrics (AUC, sensitivity, specificity, 95% CI)
+- Patient demographics
+- Keywords for Agent 2
+
+### Phase 2: Literature Search (Agent 2)
+
+```
+/paper-literature <project_dir>
+```
+
+**Input:**
+- Keywords from Agent 1
+- Disease/method context
+
+**Output:**
+- `literature/search_results.json`: Related papers
+- `literature/related_work.md`: Literature review draft
+- `literature/references.bib`: BibTeX references
+- Novelty assessment vs prior work
+
+### Phase 3: Figure Generation (Agent 3)
+
+```
+/paper-figures <project_dir> --journal lancet
+```
+
+**Input:**
+- Experiment data
+- Journal guidelines
+
+**Output:**
+- `figures/fig_roc.png`: ROC curve with AUC and 95% CI
+- `figures/fig_confusion.png`: Confusion matrix
+- `figures/fig_institution.png`: Subgroup analysis
+- `tables/table1.csv`: Patient characteristics
+
+### Phase 4: Paper Writing (Agent 4)
+
+```
+/paper-generate <project_dir> --journal lancet --guideline tripod-ai
+```
+
+**Input:**
+- All Agent 1-3 outputs
+
+**Output:**
+- `paper_spec.yaml`: Paper specification (bilingual)
+- `paper_en.tex`: English LaTeX (TRIPOD+AI compliant)
+- `paper_ja.tex`: Japanese LaTeX (XeLaTeX)
+
+### Phase 5: Quality Review
+
+```
+/paper-review <project_dir>
+```
+
+**Input:**
+- paper_spec.yaml
+- All figures
+
+**Output:**
+- `review_report.md`: Quality assessment
+- Improvement suggestions
+- Score (target: 80/100+)
+
+### Phase 6: PDF Build
+
 ```
 /paper-build <project_dir> --lang all
 ```
-- Generates English and Japanese PDFs
-- Uses WeasyPrint for rendering
-- Outputs to `<project_dir>/output/`
 
-## Output Structure
+**Input:**
+- LaTeX source files
+- Figures
+
+**Output:**
+- `output/paper_en.pdf`: English PDF
+- `output/paper_ja.pdf`: Japanese PDF
+
+## EQUATOR Network Compliance
+
+### TRIPOD+AI (27 Items)
+
+For ML prediction model studies:
+
+| Section | Key Requirements |
+|---------|------------------|
+| Title | Include "development" or "validation" |
+| Abstract | Structured: Background, Methods, Findings, Interpretation |
+| Methods | Model architecture, hyperparameters, training procedure |
+| Results | Performance with 95% CI, subgroup analyses |
+| Discussion | Comparison with prior models, limitations |
+
+### Lancet Digital Health Format
+
+1. **Summary Panel** (structured abstract)
+2. **Research in Context Panel**
+   - Evidence before this study
+   - Added value of this study
+   - Implications of all available evidence
+3. **Introduction** (brief, focused)
+4. **Methods** (TRIPOD+AI compliant)
+5. **Results** (with inline figures)
+6. **Discussion** (Principal findings, Comparison, Implications, Limitations)
+7. **Contributors, Data sharing**
+
+### Clinical Utility Metrics
+
+- **Rule-out threshold**: Specificity ≥99% (minimize false positives)
+- **Rule-in threshold**: Sensitivity ≥90% (minimize false negatives)
+
+## Output Directory Structure
 
 ```
-experiment_dir_paper/
-├── paper_spec.yaml      # Editable paper specification
-├── diagrams/            # draw.io source files
-│   └── architecture.drawio
-├── figures/             # Generated figures
-│   ├── fig_overview.png
+<project_dir>/
+├── analysis_report.json      # Agent 1 output
+├── literature/               # Agent 2 output
+│   ├── search_results.json
+│   ├── related_work.md
+│   └── references.bib
+├── figures/                  # Agent 3 output
 │   ├── fig_roc.png
-│   ├── fig_institution.png
-│   └── fig_confusion.png
-└── output/
-    ├── Paper_en.pdf     # English PDF
-    └── Paper_ja.pdf     # Japanese PDF
+│   ├── fig_confusion.png
+│   └── fig_institution.png
+├── tables/
+│   └── table1.csv
+├── paper_spec.yaml           # Agent 4 specification
+├── paper_en.tex              # English LaTeX
+├── paper_ja.tex              # Japanese LaTeX
+├── review_report.md          # Quality review
+└── output/                   # Final PDFs
+    ├── paper_en.pdf
+    └── paper_ja.pdf
 ```
 
-## Alternative: CLI Command
+## Key Features
 
-```bash
-paperclaw forge ./experiments/ \
-    --title-en "My Paper Title" \
-    --author "Author Name"
+### Inline Figure Placement
+
+Figures are placed within the Results section, not at the end:
+
+```latex
+\section{Results}
+\subsection{Model Performance}
+The model achieved AUROC 0.857...
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_roc.png}
+\caption{\textbf{ROC curve.} AUROC = 0.857 (95\% CI: 0.844-0.869).}
+\end{figure}
 ```
 
-## Best Practices
+### Bilingual Output
 
-### Tables
-- Keep tables under 8 rows to prevent layout issues
-- Split large tables into multiple smaller tables
-- Place tables in different sections if needed
+All content generated in both English and Japanese:
+- English: pdflatex compilation
+- Japanese: XeLaTeX with Hiragino fonts
 
-### Figures
-- Use `wide: true` for overview/architecture diagrams
-- Keep data figures (ROC, bar charts) single-column
-- Export at 300 DPI
+### Quality Metrics
 
-### Dates
-- Always use the current year
-- Today's date: Check `date` command
+| Metric | Manual | Automated Target |
+|--------|--------|------------------|
+| Draft generation time | Weeks-months | <1 day |
+| TRIPOD+AI compliance | Variable | 100% |
+| Bilingual output | Manual translation | Automatic |
+| Figure quality | Variable | 300 DPI |
 
-### Quality
-- Always run `/paper-qa` before building
-- Fix any warnings about table size
-- Verify numbers in figures match text
+## Supported Journals
+
+| Journal | Template | Key Requirements |
+|---------|----------|------------------|
+| Lancet Digital Health | `lancet` | Summary panel, Research in Context |
+| Nature Medicine | `nature` | Online Methods, 150-word abstract |
+| JAMA | `jama` | Key Points required |
+| NEJM | `nejm` | Strict word limits |
+| IEEE | `ieee` | Two-column, 8000 words |
 
 ## Troubleshooting
 
-### Table overlaps text
-1. Split table into smaller tables (max 6-8 rows each)
-2. Reduce column count
-3. Place tables in different sections
+### Low Review Score
 
-### Figure quality issues
-1. Regenerate at 300 DPI
-2. Check image dimensions
+1. Check `review_report.md` for issues
+2. Update `paper_spec.yaml`
+3. Re-run `/paper-review`
+4. Iterate until score ≥80
 
-### Numbers don't match
-1. Re-run `/paper-figures` with correct data
-2. Update paper_spec.yaml text
+### Data Inconsistencies
 
-## Tips
+1. Re-run `/paper-analyze` with latest data
+2. Regenerate figures with `/paper-figures`
+3. Update LaTeX files
 
-- Run individual skills for debugging: `/paper-analyze`, `/paper-figures`
-- Edit `paper_spec.yaml` manually to refine content
-- Re-run `/paper-build` after manual edits
-- Use `/paper-diagrams` for professional architecture figures
+### LaTeX Compilation Errors
+
+```bash
+# Check log files
+grep -E "^!" paper_en.log
+grep "Error" paper_ja.log
+```
+
+### Japanese Font Issues
+
+```bash
+# macOS - use system fonts
+\setCJKmainfont{Hiragino Mincho ProN}
+```
+
+## Notes
+
+- **Year**: Always use 2026 for publication dates
+- **Guideline**: TRIPOD+AI for ML models, STARD-AI for diagnostic accuracy
+- **Quality Target**: Review score ≥80/100
+- **Figure Quality**: 300 DPI, journal-compliant
+- **Bilingual**: All sections in English and Japanese
+
+## References
+
+- **TRIPOD+AI**: Collins GS, et al. BMJ 2024
+- **STARD-AI**: Sounderajah V, et al. Nat Med 2020
+- **EQUATOR Network**: https://www.equator-network.org/
